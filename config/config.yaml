@@ -1,0 +1,36 @@
+# Training params
+"LR": 5.0e-4
+"NUM_ENVS": 128 
+"NUM_STEPS": 128 # must be 128
+"TOTAL_TIMESTEPS": 1e6
+"UPDATE_EPOCHS": 4
+"NUM_MINIBATCHES": 4
+"GAMMA": 0.99
+"GAE_LAMBDA": 0.95
+"CLIP_EPS": 0.2
+"SCALE_CLIP_EPS": False
+"ENT_COEF": 0.01
+"VF_COEF": 0.5
+"MAX_GRAD_NORM": 0.5
+"ACTIVATION": "tanh"
+"ENV_NAME": "hanabi"
+"SEED": 30
+"NUM_SEEDS": 2
+"ENV_KWARGS": {}
+"ANNEAL_LR": True
+
+# WandB params
+"WANDB_MODE": "disabled"
+"ENTITY": ""
+"PROJECT": "jaxmarl-hanabi"
+
+# Env params
+"BOARD_SIZE": 20
+"MAX_HEALTH": 100
+"MELEE_DAMAGE": 40
+"RANGED_DAMAGE": 20
+"MELEE_RANGE": 1.6
+"RANGED_RANGE": 5.1
+"MOVEMENT_POINTS": 6
+"ACTION_POINTS": 1
+"MAX_STEPS": 512

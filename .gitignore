@@ -1,0 +1,10 @@
+__pycache__/
+bin/
+include/
+lib/
+lib64/
+outputs/
+share/
+*.pyc
+venv/
+.DS_Store  # If you're using macOS
