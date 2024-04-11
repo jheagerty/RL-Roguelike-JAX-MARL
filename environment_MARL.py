@@ -1,12 +1,24 @@
 ## TODO
-# get_legal_moves x
-# reset x
-# get obs x
-# step env x
-# end turn switches current player x
 # add end condition, no rewards in x steps?
-# reward function per team x
 
+## add skills
+# basic skill actions
+# modifiers
+# more more more
+## add skill picking
+# picking round
+## update ActorCritic
+# LSTM
+# action set
+# dynamic skill features
+## update training
+# opponent policy updates
+# opponent policy buffer
+# wandb logging
+# logging and performance / loss analysis
+# 
+
+## refactor
 
 import numpy as np
 import jax
@@ -148,7 +160,7 @@ class RL_Roguelike_JAX_MARL(MultiAgentEnv):
                 jnp.finfo(jnp.float32).max,
                 env_config['MAX_STEPS'],
             ]# + [1]*num_actions,
-            self.observation_spaces = {i: Box(low, high, (18+num_actions,), jnp.float32) for i in self.agents}
+            self.observation_spaces = {i: Box(low, high, (18,), jnp.float32) for i in self.agents}#(18+num_actions,), jnp.float32) for i in self.agents}
 
     def get_legal_moves(self, state: State) -> chex.Array:
         """Get all agents' legal moves"""
