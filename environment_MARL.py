@@ -20,6 +20,7 @@
 
 ## refactor
 
+# environment_MARL.py
 import numpy as np
 import jax
 import jax.numpy as jnp
@@ -31,6 +32,7 @@ from functools import partial
 from gymnax.environments.spaces import Discrete, Box
 from jaxmarl.environments.multi_agent_env import MultiAgentEnv
 
+import data_classes
 from utils import euclidean_distance, generate_unique_pairs, get_latest_checkpoint_dir
 import base_actions
 from reward import reward_function
@@ -48,42 +50,11 @@ num_actions = len(action_functions)
 
 checkpoint_dir = '/home/jvnheagerty/checkpoints'
 
-@struct.dataclass
-class UnitState:
-    unit_id: int
-    health_current: float
-    health_max: float
-    location_x: int
-    location_y: int
-    melee_attack_base_damage: float
-    ranged_attack_base_damage: float
-    melee_attack_range: float
-    ranged_attack_range: float
-    movement_points_current: float
-    movement_points_max: float
-    action_points_current: float
-    action_points_max: float
-    available_actions: chex.Array
+schema_classes = data_classes.create_struct_dataclass(data_classes.schema)
+UnitState = schema_classes['UnitState']
+GameState = schema_classes['GameState']
 
-# @struct.dataclass
-# class TeamState:
-#     hero_1: UnitState
-#     hero_2: UnitState
-#     hero_3: UnitState # HeroState
-
-@struct.dataclass
-class State:
-    # flatten this?
-    # board: chex.Array
-    player: UnitState
-    enemy: UnitState
-    distance_to_enemy: float
-    steps: int
-    turn_count: int
-    previous_closest_distance: float
-    initial_distance: float
-    cur_player_idx: chex.Array
-    terminal: bool
+low, high = data_classes.get_observation_bounds(data_classes.schema)
 
 class RL_Roguelike_JAX_MARL(MultiAgentEnv):
 
@@ -112,61 +83,19 @@ class RL_Roguelike_JAX_MARL(MultiAgentEnv):
 
         # TODO remove num_moves? no longer append available?
         if obs_size is None:
-            self.obs_size = (18)#+self.num_moves) # TODO make dynamic
+            self.obs_size = (data_classes.get_observation_size(data_classes.schema))#+self.num_moves)
 
         self.action_set = jnp.arange(self.num_moves)
         if action_spaces is None:
             self.action_spaces = {i: Discrete(self.num_moves) for i in self.agents}
         if observation_spaces is None:
-            low = [
-                # 'board': spaces.Box(0, 1, (20, 20), jnp.int32),
-                0, # 'player_health_current'
-                0, # 'player_health_max'
-                0, # 'player_location_x'
-                0, # 'player_location_y'
-                0, # 'player_melee_attack_base_damage'
-                0, # 'player_ranged_attack_base_damage'
-                0, # 'player_melee_attack_range'
-                0, # 'player_ranged_attack_range'
-                0, # 'player_movement_points_current'
-                0, # 'player_movement_points_max'
-                0, # 'player_action_points_current'
-                0, # 'player_action_points_max'
-                0, # 'enemy_health_current'
-                0, # 'enemy_health_max'
-                0, # 'enemy_location_x'
-                0, # 'enemy_location_y'
-                0, # 'distance_to_enemy'
-                0, # 'turn_count'
-            ]# + [0]*num_actions, # 'available_actions'
+            self.observation_spaces = {i: Box(low, high, (len(low),), jnp.float32) for i in self.agents}#(18+num_actions,), jnp.float32) for i in self.agents}
 
-            high = [
-                jnp.finfo(jnp.float32).max,
-                jnp.finfo(jnp.float32).max,
-                19,
-                19,
-                jnp.finfo(jnp.float32).max,
-                jnp.finfo(jnp.float32).max,
-                jnp.finfo(jnp.float32).max,
-                jnp.finfo(jnp.float32).max,
-                jnp.finfo(jnp.float32).max,
-                jnp.finfo(jnp.float32).max,
-                jnp.finfo(jnp.float32).max,
-                jnp.finfo(jnp.float32).max,
-                jnp.finfo(jnp.float32).max,
-                jnp.finfo(jnp.float32).max,
-                19,
-                19,
-                jnp.finfo(jnp.float32).max,
-                env_config['MAX_STEPS'],
-            ]# + [1]*num_actions,
-            self.observation_spaces = {i: Box(low, high, (18,), jnp.float32) for i in self.agents}#(18+num_actions,), jnp.float32) for i in self.agents}
-
-    def get_legal_moves(self, state: State) -> chex.Array:
+    def get_legal_moves(self, state: GameState) -> chex.Array:
         """Get all agents' legal moves"""
 
         @partial(jax.vmap, in_axes=[0, None])
-        def _legal_moves(aidx: int, state: State) -> chex.Array:
+        def _legal_moves(aidx: int, state: GameState) -> chex.Array:
             return jax.lax.cond(
                 aidx == 0,
                 lambda _: self.get_available_actions(state.player, state.enemy, state),
@@ -178,47 +107,28 @@ class RL_Roguelike_JAX_MARL(MultiAgentEnv):
 
         return {a: legal_moves[i] for i, a in enumerate(self.agents)}
 
-    def reset(self, key: chex.PRNGKey) -> Tuple[Dict, State]:
+    def reset(self, key: chex.PRNGKey) -> Tuple[Dict, GameState]:
         """Reset the environment"""
 
         x1, y1, x2, y2 = generate_unique_pairs(key)
         initial_distance = jnp.float32(euclidean_distance(x1,x2,y1,y2))
 
-        player = UnitState(
-            unit_id = jnp.int32(1),
-            health_current = jnp.float32(env_config['MAX_HEALTH']),
-            health_max = jnp.float32(env_config['MAX_HEALTH']),
-            location_x = x1,
-            location_y = y1,
-            melee_attack_base_damage = jnp.float32(env_config['MELEE_DAMAGE']),
-            ranged_attack_base_damage = jnp.float32(env_config['RANGED_DAMAGE']),
-            melee_attack_range = jnp.float32(env_config['MELEE_RANGE']),
-            ranged_attack_range = jnp.float32(env_config['RANGED_RANGE']),
-            movement_points_current = jnp.float32(env_config['MOVEMENT_POINTS']),
-            movement_points_max = jnp.float32(env_config['MOVEMENT_POINTS']),
-            action_points_current = jnp.float32(env_config['ACTION_POINTS']),
-            action_points_max = jnp.float32(env_config['ACTION_POINTS']),
-            available_actions = jnp.zeros(num_actions),
-        )
 
-        enemy = UnitState(
-            unit_id = jnp.int32(-1),
-            health_current = jnp.float32(env_config['MAX_HEALTH']),
-            health_max = jnp.float32(env_config['MAX_HEALTH']),
-            location_x = x2,
-            location_y = y2,
-            melee_attack_base_damage = jnp.float32(env_config['MELEE_DAMAGE']),
-            ranged_attack_base_damage = jnp.float32(env_config['RANGED_DAMAGE']),
-            melee_attack_range = jnp.float32(env_config['MELEE_RANGE']),
-            ranged_attack_range = jnp.float32(env_config['RANGED_RANGE']),
-            movement_points_current = jnp.float32(env_config['MOVEMENT_POINTS']),
-            movement_points_max = jnp.float32(env_config['MOVEMENT_POINTS']),
-            action_points_current = jnp.float32(env_config['ACTION_POINTS']),
-            action_points_max = jnp.float32(env_config['ACTION_POINTS']),
-            available_actions = jnp.zeros(num_actions),
-        )
+        player = data_classes.create_unit_state(
+            UnitState,
+            {'unit_id': jnp.int32(1),
+            'location_x': x1,
+            'location_y': y1,
+            })
 
-        state = State(
+        enemy = data_classes.create_unit_state(
+            UnitState,
+            {'unit_id': jnp.int32(-1),
+            'location_x': x2,
+            'location_y': y2,
+            })
+ 
+        state = GameState(
             player = player,
             enemy = enemy,
             distance_to_enemy = initial_distance,
@@ -238,81 +148,20 @@ class RL_Roguelike_JAX_MARL(MultiAgentEnv):
         return self.get_obs(state), state
 
     @partial(jax.jit, static_argnums=[0])
-    def get_obs(self, state: State) -> Dict:
-        """
-        Get all agents' observations
-        """
+    def get_obs(self, state: GameState) -> Dict:
+        """Get all agents' observations using the schema definition"""
+        
         @partial(jax.vmap, in_axes=[0, None])
-        def _observation(aidx: int, state: State) -> chex.Array:
-            """Generate individual agent's observation"""
-
-            ## TODO can we use the following pattern to do this better?
-            # actions = jnp.array([actions[i] for i in self.agents])
-            # aidx = jnp.nonzero(state.cur_player_idx, size=1)[0][0]
-            # action = actions.at[aidx].get()
-
-            def get_player_obs(state: State) -> chex.Array:
-                return jnp.array(
-                    [
-                        state.player.health_current,
-                        state.player.health_max,
-                        state.player.location_x,
-                        state.player.location_y,
-                        state.player.melee_attack_base_damage,
-                        state.player.ranged_attack_base_damage,
-                        state.player.melee_attack_range,
-                        state.player.ranged_attack_range,
-                        state.player.movement_points_current,
-                        state.player.movement_points_max,
-                        state.player.action_points_current,
-                        state.player.action_points_max,
-                        state.enemy.health_current,
-                        state.enemy.health_max,
-                        state.enemy.location_x,
-                        state.enemy.location_y,
-                        state.distance_to_enemy,
-                        state.turn_count,
-                        ]
-                        )
-            def get_enemy_obs(state: State) -> chex.Array:
-                return jnp.array(
-                    [
-                        state.enemy.health_current,
-                        state.enemy.health_max,
-                        state.enemy.location_x,
-                        state.enemy.location_y,
-                        state.enemy.melee_attack_base_damage,
-                        state.enemy.ranged_attack_base_damage,
-                        state.enemy.melee_attack_range,
-                        state.enemy.ranged_attack_range,
-                        state.enemy.movement_points_current,
-                        state.enemy.movement_points_max,
-                        state.enemy.action_points_current,
-                        state.enemy.action_points_max,
-                        state.player.health_current,
-                        state.player.health_max,
-                        state.player.location_x,
-                        state.player.location_y,
-                        state.distance_to_enemy,
-                        state.turn_count,
-                        ]
-                        )
-
-            return jax.lax.cond(
-                aidx == 0,
-                lambda _: get_player_obs(state),
-                lambda _: get_enemy_obs(state),
-                operand=None
-                )
+        def _observation(aidx: int, state: GameState) -> chex.Array:
+            return data_classes.make_schema_based_observation(state, aidx, data_classes.schema)
 
         obs = _observation(self.agent_range, state)
-
         return {a: obs[i] for i, a in enumerate(self.agents)}
     
     def function_mapper(
             self,
             key: chex.PRNGKey,
-            state: State,
+            state: GameState,
             action: int,
             unit,
             target,
@@ -338,13 +187,13 @@ class RL_Roguelike_JAX_MARL(MultiAgentEnv):
             self,
             unit,
             target,
-            state: State) -> chex.Array:
+            state: GameState) -> chex.Array:
         return jnp.array([action.is_valid(state, unit, target) for action in action_functions], dtype=jnp.int32)
 
     @partial(jax.jit, static_argnums=[0])
 
-    def step_env(self, key: chex.PRNGKey, state: State, actions: Dict,
-                 ) -> Tuple[chex.Array, State, Dict, Dict, Dict]:
+    def step_env(self, key: chex.PRNGKey, state: GameState, actions: Dict,
+                 ) -> Tuple[chex.Array, GameState, Dict, Dict, Dict]:
         """
         Step the environment
         Executes one turn
@@ -395,7 +244,7 @@ class RL_Roguelike_JAX_MARL(MultiAgentEnv):
             info
         )
 
-    # def step_agent(self, key: chex.PRNGKey, state: State, aidx: int, action: int,
+    # def step_agent(self, key: chex.PRNGKey, state: GameState, aidx: int, action: int,
     #                ) -> Tuple[State, int]:
     #     """
     #     Execute the current player's action and its consequences
@@ -412,7 +261,7 @@ class RL_Roguelike_JAX_MARL(MultiAgentEnv):
     #                          bombed=bombed
     #                          ), reward
 
-    def terminal(self, state: State) -> bool:
+    def terminal(self, state: GameState) -> bool:
         """Check whether state is terminal."""
         return state.terminal
 
