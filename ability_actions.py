@@ -100,10 +100,21 @@ class SuicideAction(Action):
             )
         )
 
-# regen:
-
-# stun_nuke:
-
-# minus_armour:
-
-# wound
+# Steal Strength - reduce enemy strength and increase own strength
+# Strength Regen - regen health based on your strength
+# Add barrier - add a barrier based on resolve
+# Mana Burn
+# Multi Attack
+# Return
+# Fury Swipes
+# Push
+# Frost Arrows
+# Stun
+# Hook
+# Lifesteal / feast
+# Int steal
+# Int based nuke
+# Armour reduction
+# Add barrier
+# Spellsteal
+# Fracture casting

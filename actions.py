@@ -6,7 +6,12 @@ from utils import euclidean_distance, is_within_bounds, is_collision, do_invalid
 class Action:
     """Base class for all actions in the game."""
     def __init__(self):
-        pass
+        self._ability_description = "Base action"
+    
+    @property
+    def ability_description(self):
+        """Returns description of the action."""
+        return self._ability_description
     
     def is_valid(self, state, unit, target):
         """Default validity check."""

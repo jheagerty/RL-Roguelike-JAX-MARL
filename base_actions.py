@@ -1,8 +1,10 @@
 # base_actions.py
 import jax.numpy as jnp
 from jax import lax, debug
-from utils import euclidean_distance, is_within_bounds, is_collision, do_invalid_move
+from utils import euclidean_distance, is_within_bounds, is_collision, do_invalid_move, do_attack
 from actions import Action
+from data_classes import AttackType, DamageType
+
 
 action_registry = {}
 
@@ -22,6 +24,18 @@ class MoveAction(Action):
         super().__init__()
         self.dx = dx
         self.dy = dy
+        
+        # Create direction description
+        direction = ""
+        if dy > 0: direction += "up"
+        if dy < 0: direction += "down"
+        if dx > 0: direction += "right"
+        if dx < 0: direction += "left"
+        
+        movement_type = "diagonal" if (dx != 0 and dy != 0) else "orthogonal"
+        distance = jnp.sqrt(dx**2 + dy**2)
+        
+        self._ability_description = f"Move {direction} ({movement_type}, {distance:.1f} movement points)"
 
     def is_valid(self, state, unit, target):
         new_x, new_y = unit.location_x + self.dx, unit.location_y + self.dy
@@ -75,10 +89,12 @@ class MeleeAttackAction(Action):
         return jnp.logical_and(enough_action_points, within_range)
 
     def _perform_action(self, state, unit, target):
-        target_health_after = jnp.maximum(0, target.health_current - unit.melee_base_attack_damage)
-        unit_action_points = unit.action_points_current - 1
-        new_target = target.replace(health_current=jnp.float32(target_health_after))
-        new_unit = unit.replace(action_points_current=jnp.float32(unit_action_points))
+        new_unit = unit.replace(
+            action_points_current=jnp.float32(unit.action_points_current - 1)
+        )
+        new_unit, new_target = do_attack(new_unit, target, 
+                                       AttackType.MELEE, 
+                                       DamageType.PHYSICAL)
         
         return lax.cond(
             jnp.equal(state.player.unit_id, unit.unit_id),
@@ -96,10 +112,12 @@ class RangedAttackAction(Action):
         return jnp.logical_and(enough_action_points, within_range)
 
     def _perform_action(self, state, unit, target):
-        target_health_after = jnp.maximum(0, target.health_current - unit.ranged_base_attack_damage)
-        unit_action_points = unit.action_points_current - 1
-        new_target = target.replace(health_current=jnp.float32(target_health_after))
-        new_unit = unit.replace(action_points_current=jnp.float32(unit_action_points))
+        new_unit = unit.replace(
+            action_points_current=jnp.float32(unit.action_points_current - 1)
+        )
+        new_unit, new_target = do_attack(new_unit, target,
+                                       AttackType.RANGED,
+                                       DamageType.PHYSICAL)
         
         return lax.cond(
             jnp.equal(state.player.unit_id, unit.unit_id),

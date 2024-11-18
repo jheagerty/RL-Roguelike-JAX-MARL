@@ -51,6 +51,8 @@ num_actions = len(action_functions)
 checkpoint_dir = '/home/jvnheagerty/checkpoints'
 
 schema_classes = data_classes.create_struct_dataclass(data_classes.schema)
+AbilityState = schema_classes['AbilityState']
+AbilityStatusState = schema_classes['AbilityStatusState']
 UnitState = schema_classes['UnitState']
 GameState = schema_classes['GameState']
 

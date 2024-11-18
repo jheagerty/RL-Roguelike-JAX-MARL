@@ -5,10 +5,97 @@ from config import env_config
 import jax
 import jax.numpy as jnp
 from typing import Dict, List, Any
+from enum import Enum, auto
 
+class AttackType(Enum):
+    MELEE = auto()
+    RANGED = auto()
+
+class DamageType(Enum):
+    PHYSICAL = auto()
+    MAGICAL = auto()
+    PURE = auto()
+    
 float_max = jnp.finfo(jnp.float32).max
 
 schema = {
+  "AbilityState": {
+    "ability_index": {
+      "type": chex.Array,
+      "default": jnp.zeros(2),
+      "obs": False
+    },
+    "base_cooldown": {
+      "type": int,
+      "default": jnp.int32(0),
+      "obs": True,
+      "low": 0,
+      "high": 100
+    },
+    "current_cooldown": {
+      "type": int,
+      "default": jnp.int32(0),
+      "obs": True,
+      "low": 0,
+      "high": 100
+    },
+    "parameter_1": {
+      "type": int,
+      "default": jnp.int32(0),
+      "obs": True,
+      "low": -1000,
+      "high": -1000
+    },
+    "parameter_2": {
+      "type": int,
+      "default": jnp.int32(0),
+      "obs": True,
+      "low": -1000,
+      "high": 1000
+    },
+    "parameter_3": {
+      "type": int,
+      "default": jnp.int32(0),
+      "obs": True,
+      "low": -1000,
+      "high": 1000
+    }
+  },
+  "AbilityStatusState": {
+    "ability_index": {
+      "type": chex.Array,
+      "default": jnp.zeros(2),
+      "obs": False
+    },
+    "source_player_idx": {
+      "type": chex.Array,
+      "default": jnp.zeros(2),
+      "obs": True, #TODO this might take a bit of work
+      "low": jnp.zeros(2),
+      "high": jnp.ones(2)
+    },
+    "duration": {
+      "type": int,
+      "default": jnp.int32(0),
+      "obs": True,
+      "low": 0,
+      "high": 100
+    },
+    "parameter_1": {
+      "type": int,
+      "default": jnp.int32(0),
+      "obs": True,
+      "low": -1000,
+      "high": -1000
+    },
+    "parameter_2": {
+      "type": int,
+      "default": jnp.int32(0),
+      "obs": True,
+      "low": -1000,
+      "high": 1000
+    }
+  },
   "UnitState": {
     "unit_id": {
         "type": int,
@@ -264,8 +351,8 @@ schema = {
       "type": float,
       "default": jnp.float32(0),
       "obs": True,
-      "low": -1,
-      "high": 1,
+      "low": -1000,
+      "high": 1000,
     },
     "magical_damage_return": {
       "type": float,
@@ -876,6 +963,42 @@ schema = {
       "low": False,
       "high": True,
     },
+    "ability_state_1": {
+      "type": "AbilityState",
+      "obs": True
+    },
+    "ability_state_2": {
+      "type": "AbilityState",
+      "obs": True
+    },
+    "ability_state_3": {
+      "type": "AbilityState",
+      "obs": True
+    },
+    "ability_status_state_1": {
+      "type": "AbilityStatusState",
+      "obs": True
+    },
+    "ability_status_state_2": {
+      "type": "AbilityStatusState",
+      "obs": True
+    },
+    "ability_status_state_3": {
+      "type": "AbilityStatusState",
+      "obs": True
+    },
+    "ability_status_state_4": {
+      "type": "AbilityStatusState",
+      "obs": True
+    },
+    "ability_status_state_5": {
+      "type": "AbilityStatusState",
+      "obs": True
+    },
+    "ability_status_state_6": {
+      "type": "AbilityStatusState",
+      "obs": True
+    },
     "available_actions": {
         "type": chex.Array,
         "default": jnp.zeros(11),
@@ -950,26 +1073,29 @@ def create_struct_dataclass(schema):
         classes[key] = struct.dataclass(type(key, (object,), {'__annotations__': annotations}))
     return classes
 
-# Define the function that initialises game state
-def initialise_game_state(UnitState, GameState):
-    # Construct the default UnitState by evaluating the provided defaults
-    default_unit_state = UnitState(**{
-        k: eval(v['default']) if isinstance(v['default'], str) and 'jnp' in v['default'] else v['default']
-        for k, v in schema['UnitState'].items()
-    })
+# Create classes from schema first
+schema_classes = create_struct_dataclass(schema)
+
+# # Define the function that initialises game state
+# def initialise_game_state(UnitState, GameState):
+#     # Construct the default UnitState by evaluating the provided defaults
+#     default_unit_state = UnitState(**{
+#         k: eval(v['default']) if isinstance(v['default'], str) and 'jnp' in v['default'] else v['default']
+#         for k, v in schema['UnitState'].items()
+#     })
     
-    # Create player and enemy unit states
-    player = default_unit_state
-    enemy = default_unit_state.replace(unit_id=-1)  # Assuming 'unit_id' differentiates players and enemies
+#     # Create player and enemy unit states
+#     player = default_unit_state
+#     enemy = default_unit_state.replace(unit_id=-1)  # Assuming 'unit_id' differentiates players and enemies
     
-    # Construct the GameState by providing defaults for non-unit state properties
-    game_state = GameState(
-        player=player,
-        enemy=enemy,
-        **{k: eval(v['default']) if isinstance(v['default'], str) and 'jnp' in v['default'] else v['default']
-           for k, v in schema['GameState'].items() if k not in ['player', 'enemy']}
-    )
-    return game_state
+#     # Construct the GameState by providing defaults for non-unit state properties
+#     game_state = GameState(
+#         player=player,
+#         enemy=enemy,
+#         **{k: eval(v['default']) if isinstance(v['default'], str) and 'jnp' in v['default'] else v['default']
+#            for k, v in schema['GameState'].items() if k not in ['player', 'enemy']}
+#     )
+#     return game_state
 
 # Define the function that gets the observation bounds
 def get_observation_bounds(state_schema):
@@ -999,20 +1125,31 @@ def get_observation_bounds(state_schema):
 # Define the function that creates a UnitState instance
 def create_unit_state(UnitState, custom_values=None):
     # Get defaults from schema
-    defaults = {
-        field: (eval(attrs['default']) if isinstance(attrs['default'], str) and 'jnp' in attrs['default'] 
-                else attrs['default'])
-        for field, attrs in schema['UnitState'].items()
-    }
+    defaults = {}
+    
+    for field, attrs in schema['UnitState'].items():
+        if isinstance(attrs['type'], str) and attrs['type'] in schema:
+            # Handle nested types like AbilityState and AbilityStatusState
+            nested_class = schema_classes[attrs['type']]
+            nested_defaults = {
+                k: (eval(v['default']) if isinstance(v['default'], str) and 'jnp' in v['default'] 
+                    else v['default'])
+                for k, v in schema[attrs['type']].items()
+            }
+            defaults[field] = nested_class(**nested_defaults)
+        else:
+            defaults[field] = (eval(attrs['default']) if isinstance(attrs['default'], str) and 'jnp' in attrs['default'] 
+                             else attrs['default'])
     
     # Update with custom values if provided
     if custom_values:
+        # Remove the item() conversion and just use values directly
         defaults.update(custom_values)
         
     # Create UnitState instance
     return UnitState(**defaults)
 
-# Define the function that takes in the schema and a GameState object and returns the observation array
+# Define the function that takes in the schema and a GameState object and returns the observation array # TODO: this flattens arrays, might need to unflatten for CNN etc later
 def get_observation_values(state_obj: Any, schema: Dict, parent_key: str = '') -> List[float]:
     schema_section = schema.get(state_obj.__class__.__name__, schema)
     
@@ -1022,12 +1159,15 @@ def get_observation_values(state_obj: Any, schema: Dict, parent_key: str = '') -
         for val in get_observation_values(getattr(state_obj, field_name), schema, f"{parent_key}{field_name}.")
     ]
     
-    direct_values = [
-        jnp.float32(field_value) if isinstance(field_value, bool) else field_value
-        for field_name, field_def in schema_section.items()
-        if field_def.get('obs', False) and not (isinstance(field_def.get('type'), str) and field_def['type'] in schema)
-        for field_value in [getattr(state_obj, field_name)]
-    ]
+    direct_values = []
+    for field_name, field_def in schema_section.items():
+        if field_def.get('obs', False) and not (isinstance(field_def.get('type'), str) and field_def['type'] in schema):
+            field_value = getattr(state_obj, field_name)
+            # Handle array values by flattening them
+            if isinstance(field_value, (jnp.ndarray, chex.Array)):
+                direct_values.extend(field_value.flatten())
+            else:
+                direct_values.append(jnp.float32(field_value) if isinstance(field_value, bool) else field_value)
     
     return nested_values + direct_values
 
@@ -1056,18 +1196,26 @@ def make_schema_based_observation(state, aidx, schema):
 
 def get_observation_size(schema: Dict) -> int:
     def count_observable_fields(schema_part):
-        count = [
-            1 for k, v in schema_part.items()
-            if v.get('obs', False) and not (isinstance(v.get('type'), str) and v['type'] in schema)
-        ]
+        # Count array fields by their size
+        array_counts = []
+        for k, v in schema_part.items():
+            if v.get('obs', False) and not (isinstance(v.get('type'), str) and v['type'] in schema):
+                if isinstance(v.get('default'), (jnp.ndarray, chex.Array)):
+                    try:
+                        array_counts.append(v['default'].size)  # Use size instead of len
+                    except:
+                        array_counts.append(1)  # Fallback for scalar arrays
+                else:
+                    array_counts.append(1)
         
+        # Count nested fields
         nested_counts = [
             count_observable_fields(schema[v['type']])
             for k, v in schema_part.items()
             if v.get('obs', False) and isinstance(v.get('type'), str) and v['type'] in schema
         ]
         
-        return sum(count) + sum(nested_counts)
+        return sum(array_counts) + sum(nested_counts)
     
     return count_observable_fields(schema['GameState'])
 
