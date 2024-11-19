@@ -16,13 +16,12 @@ register_action("SuicideAction", lambda: [SuicideAction()])
 
 class SuicideAction(Action):
     def __init__(self):
+        super().__init__()
         # Define all parameters as class variables during initialization
         self._ability_description = "Deal damage based on strength to an enemy and take damage yourself"
         self._base_cooldown = jnp.int32(3)
         self._parameter_1 = jnp.float32(8)  # range
         self._parameter_2 = jnp.float32(5)  # base_damage
-        self._parameter_3 = jnp.float32(0)
-        super().__init__()
         
     def is_valid(self, state, unit, target):
         enough_action_points = unit.action_points_current >= 1
@@ -93,12 +92,11 @@ register_action("StealStrengthAction", lambda: [StealStrengthAction()])
 
 class StealStrengthAction(Action):
     def __init__(self):
+        super().__init__()
         self._ability_description = "Steal 2 strength from the target"
         self._base_cooldown = jnp.int32(1)
         self._parameter_1 = jnp.float32(4)  # range
         self._parameter_2 = jnp.float32(2)  # strength_steal_amount
-        self._parameter_3 = jnp.float32(0)
-        super().__init__()
 
     def is_valid(self, state, unit, target):
         enough_action_points = unit.action_points_current >= 1
@@ -123,14 +121,14 @@ class StealStrengthAction(Action):
             lambda: state.replace(player=new_target, enemy=new_unit)
         )
     
+# Multi Attack
+# Frost Arrows
 # Strength Regen - regen health based on your strength
 # Add barrier - add a barrier based on resolve
 # Mana Burn
-# Multi Attack
 # Return
 # Fury Swipes
 # Push
-# Frost Arrows
 # Stun
 # Hook
 # Lifesteal / feast

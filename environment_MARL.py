@@ -142,12 +142,7 @@ class RL_Roguelike_JAX_MARL(MultiAgentEnv):
         x1, y1, x2, y2 = generate_unique_pairs(key_pos)
         initial_distance = jnp.float32(euclidean_distance(x1, y1, x2, y2))
 
-        # Generate random indices using permutation
-        num_abilities = len(ability_action_functions)
-        indices = jnp.arange(num_abilities)
-        shuffled = jax.random.permutation(key_abilities, indices)
-        ability_idx1 = shuffled[0]
-        ability_idx2 = shuffled[1]
+        ability_idx1, ability_idx2 = self.pick_random_abilities(key_abilities)
 
         # Get ability parameters using vmap
         def get_ability_params(idx):
@@ -343,23 +338,6 @@ class RL_Roguelike_JAX_MARL(MultiAgentEnv):
             dones,
             info
         )
-
-    # def step_agent(self, key: chex.PRNGKey, state: GameState, aidx: int, action: int,
-    #                ) -> Tuple[State, int]:
-    #     """
-    #     Execute the current player's action and its consequences
-    #     """
-
-
-
-
-    #     return state.replace(terminal=terminal,
-    #                          last_moves=last_moves,
-    #                          cur_player_idx=cur_player_idx,
-    #                          out_of_lives=out_of_lives,
-    #                          last_round_count=last_round_count,
-    #                          bombed=bombed
-    #                          ), reward
 
     def terminal(self, state: GameState) -> bool:
         """Check whether state is terminal."""
