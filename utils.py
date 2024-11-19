@@ -75,25 +75,23 @@ def get_available_actions(
         ) -> chex.Array:
     return jnp.array([action.is_valid(state, unit, target) for action in action_functions], dtype=jnp.int32)
 
-def take_damage(attacker, defender, damage, damage_type: DamageType, return_damage: bool = False):
-    """Apply damage to defender considering resistances and return damage mechanics"""
+def take_damage(attacker, defender, damage, damage_type: DamageType):
+    """Apply damage to defender considering resistances"""
     def process_physical_damage(inputs):
         attacker, defender, damage = inputs
         
         def handle_immune(_):
-            # Add damage=0 and return_dmg=0 to match handle_damage output type
-            return attacker, defender, jnp.float32(0), jnp.float32(0)
+            return attacker, defender, jnp.float32(0)
             
         def handle_damage(_):
             # Calculate damage
             blocked_damage = jnp.maximum(0, damage - defender.physical_block)
             final_damage = blocked_damage * (1 - defender.physical_resist)
-            return_dmg = defender.physical_damage_return + (final_damage * defender.physical_damage_return_rate)
             
             new_defender = defender.replace(
                 health_current=jnp.float32(jnp.maximum(0, defender.health_current - final_damage))
             )
-            return attacker, new_defender, jnp.float32(final_damage), jnp.float32(return_dmg)
+            return attacker, new_defender, jnp.float32(final_damage)
             
         return lax.cond(
             defender.physical_immunity,
@@ -106,17 +104,16 @@ def take_damage(attacker, defender, damage, damage_type: DamageType, return_dama
         attacker, defender, damage = inputs
         
         def handle_immune(_):
-            return attacker, defender, jnp.float32(0), jnp.float32(0)
+            return attacker, defender, jnp.float32(0)
             
         def handle_damage(_):
             blocked_damage = jnp.maximum(0, damage - defender.magical_block)
             final_damage = blocked_damage * (1 - defender.magical_resist)
-            return_dmg = defender.magical_damage_return + (final_damage * defender.magical_damage_return_rate)
             
             new_defender = defender.replace(
                 health_current=jnp.float32(jnp.maximum(0, defender.health_current - final_damage))
             )
-            return attacker, new_defender, jnp.float32(final_damage), jnp.float32(return_dmg)
+            return attacker, new_defender, jnp.float32(final_damage)
 
         return lax.cond(
             defender.magical_immunity,
@@ -127,15 +124,13 @@ def take_damage(attacker, defender, damage, damage_type: DamageType, return_dama
 
     def process_pure_damage(inputs):
         attacker, defender, damage = inputs
-        return_dmg = defender.pure_damage_return + (damage * defender.pure_damage_return_rate)
-        
         new_defender = defender.replace(
             health_current=jnp.float32(jnp.maximum(0, defender.health_current - damage))
         )
-        return attacker, new_defender, jnp.float32(damage), jnp.float32(return_dmg)
+        return attacker, new_defender, jnp.float32(damage)
 
-    # Process initial damage based on type
-    attacker, defender, damage_dealt, return_damage_amount = lax.switch(
+    # Process damage based on type
+    return lax.switch(
         damage_type.value - 1,
         [
             lambda x: process_physical_damage(x),
@@ -144,24 +139,59 @@ def take_damage(attacker, defender, damage, damage_type: DamageType, return_dama
         ],
         (attacker, defender, damage)
     )
+
+def do_damage(attacker, defender, damage, damage_type: DamageType, return_damage: bool = False): # TODO: check how we do with negative damage
+    """Handle damage application, lifesteal, and return damage mechanics"""
+    # Apply initial damage
+    attacker, defender, damage_dealt = take_damage(attacker, defender, damage, damage_type) #TODO: if defender is immune, do no damage at all? as in, such that nothing else gets triggered
+    
+    # Apply lifesteal based on damage type
+    def apply_lifesteal(inputs):
+        attacker, damage_dealt, lifesteal = inputs
+        heal_amount = damage_dealt * lifesteal
+        new_health = jnp.minimum(attacker.health_max, attacker.health_current + heal_amount)
+        return attacker.replace(health_current=new_health)
+    
+    lifesteal_amount = lax.switch(
+        damage_type.value - 1,
+        [
+            lambda x: x.physical_lifesteal,
+            lambda x: x.magical_lifesteal,
+            lambda x: x.pure_lifesteal
+        ],
+        attacker
+    )
+    
+    attacker = apply_lifesteal((attacker, damage_dealt, lifesteal_amount))
+    
+    # Calculate return damage
+    def calc_physical_return(damage_dealt):
+        return defender.physical_damage_return + (damage_dealt * defender.physical_damage_return_rate)
+        
+    def calc_magical_return(damage_dealt):
+        return defender.magical_damage_return + (damage_dealt * defender.magical_damage_return_rate)
+        
+    def calc_pure_return(damage_dealt):
+        return defender.pure_damage_return + (damage_dealt * defender.pure_damage_return_rate)
+    
+    return_damage_amount = lax.switch(
+        damage_type.value - 1,
+        [
+            lambda x: calc_physical_return(x),
+            lambda x: calc_magical_return(x),
+            lambda x: calc_pure_return(x)
+        ],
+        damage_dealt
+    )
     
     # Handle return damage if needed
     def apply_return_damage(_):
-        new_attacker, _, _, _ = lax.switch(
-            damage_type.value - 1,
-            [
-                lambda x: process_physical_damage(x),
-                lambda x: process_magical_damage(x),
-                lambda x: process_pure_damage(x)
-            ],
-            (defender, attacker, return_damage_amount)
-        )
+        new_attacker, _, _ = take_damage(defender, attacker, return_damage_amount, damage_type)
         return new_attacker, defender
         
     def skip_return(_):
         return attacker, defender
     
-    # Only apply return damage if not already processing return damage
     return lax.cond(
         jnp.logical_and(
             jnp.logical_not(return_damage),
@@ -172,16 +202,23 @@ def take_damage(attacker, defender, damage, damage_type: DamageType, return_dama
         None
     )
 
-def do_damage(attacker, defender, damage, damage_type: DamageType, return_damage: bool = False):
-    """Handle damage application"""
-    return take_damage(attacker, defender, damage, damage_type, return_damage)
-
 def do_attack(attacker, defender, attack_type: AttackType, damage_type: DamageType, return_damage: bool = False):
     """Execute an attack based on type"""
-    match attack_type:
-        case AttackType.MELEE:
-            damage = attacker.melee_base_attack_damage
-            return do_damage(attacker, defender, damage, damage_type, return_damage)
-        case AttackType.RANGED:
-            damage = attacker.ranged_base_attack_damage
-            return do_damage(attacker, defender, damage, damage_type, return_damage)
+    def handle_melee(args):
+        attacker, defender = args
+        damage = attacker.melee_base_attack_damage
+        return do_damage(attacker, defender, damage, damage_type, return_damage)
+        
+    def handle_ranged(args):
+        attacker, defender = args
+        damage = attacker.ranged_base_attack_damage
+        return do_damage(attacker, defender, damage, damage_type, return_damage)
+    
+    return lax.switch(
+        attack_type.value - 1,  # Convert enum to 0-based index
+        [
+            handle_melee,
+            handle_ranged
+        ],
+        (attacker, defender)
+    )

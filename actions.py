@@ -7,11 +7,30 @@ class Action:
     """Base class for all actions in the game."""
     def __init__(self):
         self._ability_description = "Base action"
+        self._base_cooldown = jnp.int32(0)
+        self._parameter_1 = jnp.float32(0)
+        self._parameter_2 = jnp.float32(0) 
+        self._parameter_3 = jnp.float32(0)
     
     @property
     def ability_description(self):
-        """Returns description of the action."""
         return self._ability_description
+    
+    @property
+    def base_cooldown(self):
+        return self._base_cooldown
+        
+    @property
+    def parameter_1(self):
+        return self._parameter_1
+        
+    @property
+    def parameter_2(self):
+        return self._parameter_2
+        
+    @property
+    def parameter_3(self):
+        return self._parameter_3
     
     def is_valid(self, state, unit, target):
         """Default validity check."""
@@ -37,7 +56,7 @@ class Action:
         """Override this to implement specific action logic."""
         raise NotImplementedError
         
-    def _update_state_for_actor(self, state, unit):
+    def _update_state_for_actor(self, state, unit):# TODO: check if this is correct
         """Updates step counter if player acted."""
         return lax.cond(
             jnp.equal(state.player.unit_id, unit.unit_id),

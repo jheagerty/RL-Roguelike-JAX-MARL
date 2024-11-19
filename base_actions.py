@@ -6,10 +6,10 @@ from actions import Action
 from data_classes import AttackType, DamageType
 
 
-action_registry = {}
+base_action_registry = {}
 
 def register_action(name, create_fn):
-    action_registry[name] = create_fn
+    base_action_registry[name] = create_fn
 
 # Example registration for MoveAction
 register_action("MoveAction", lambda: [MoveAction(dx, dy) for dx in (-1, 0, 1) for dy in (-1, 0, 1) if dx != 0 or dy != 0])
@@ -79,7 +79,7 @@ class MoveAction(Action):
             ),
         )
 
-class MeleeAttackAction(Action):
+class MeleeAttackAction(Action):#TODO: update to default physical but can be other types
     def __init__(self):
         super().__init__()
 

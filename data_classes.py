@@ -15,15 +15,17 @@ class DamageType(Enum):
     PHYSICAL = auto()
     MAGICAL = auto()
     PURE = auto()
-    
+
 float_max = jnp.finfo(jnp.float32).max
 
-schema = {
+schema = { # TODO: make function ? so ability index can be dynamic
   "AbilityState": {
     "ability_index": {
-      "type": chex.Array,
-      "default": jnp.zeros(2),
-      "obs": False
+      "type": int,
+      "default": jnp.int32(-1),
+      "obs": True,
+      "low": -1,
+      "high": 100
     },
     "base_cooldown": {
       "type": int,
@@ -63,9 +65,11 @@ schema = {
   },
   "AbilityStatusState": {
     "ability_index": {
-      "type": chex.Array,
-      "default": jnp.zeros(2),
-      "obs": False
+      "type": int,
+      "default": jnp.int32(-1),
+      "obs": True,
+      "low": -1,
+      "high": 100
     },
     "source_player_idx": {
       "type": chex.Array,
@@ -506,6 +510,27 @@ schema = {
       "default": jnp.float32(1),
       "obs": True,
       "low": 0,
+      "high": 10,
+    },
+    "physical_lifesteal": {
+      "type": float,
+      "default": jnp.float32(0),
+      "obs": True,
+      "low": -10,
+      "high": 10,
+    },
+    "magical_lifesteal": {
+      "type": float,
+      "default": jnp.float32(0),
+      "obs": True,
+      "low": -10,
+      "high": 10,
+    },
+    "pure_lifesteal": {
+      "type": float,
+      "default": jnp.float32(0),
+      "obs": True,
+      "low": -10,
       "high": 10,
     },
     "silenced_flag": {
@@ -967,14 +992,6 @@ schema = {
       "type": "AbilityState",
       "obs": True
     },
-    "ability_state_2": {
-      "type": "AbilityState",
-      "obs": True
-    },
-    "ability_state_3": {
-      "type": "AbilityState",
-      "obs": True
-    },
     "ability_status_state_1": {
       "type": "AbilityStatusState",
       "obs": True
@@ -983,25 +1000,9 @@ schema = {
       "type": "AbilityStatusState",
       "obs": True
     },
-    "ability_status_state_3": {
-      "type": "AbilityStatusState",
-      "obs": True
-    },
-    "ability_status_state_4": {
-      "type": "AbilityStatusState",
-      "obs": True
-    },
-    "ability_status_state_5": {
-      "type": "AbilityStatusState",
-      "obs": True
-    },
-    "ability_status_state_6": {
-      "type": "AbilityStatusState",
-      "obs": True
-    },
     "available_actions": {
         "type": chex.Array,
-        "default": jnp.zeros(11),
+        "default": jnp.zeros(12), #TODO: make this dynamic
         "obs": False
     },
   },
