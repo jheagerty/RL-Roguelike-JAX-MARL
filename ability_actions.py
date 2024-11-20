@@ -1,4 +1,5 @@
 import jax.numpy as jnp
+import chex
 from jax import lax, debug
 from utils import euclidean_distance, is_within_bounds, is_collision, do_invalid_move, do_damage
 from actions import Action
@@ -28,7 +29,7 @@ class SuicideAction(Action):
         within_range = state.distance_to_enemy <= self.parameter_1
         return jnp.logical_and(enough_action_points, within_range)
 
-    def _perform_action(self, state, unit, target):
+    def _perform_action(self, key: chex.PRNGKey, state, unit, target, ability_idx=jnp.int32(-1)):
         # Generate all 8 adjacent grid positions
         adjacent_positions = [
             (target.location_x + dx, target.location_y + dy)
@@ -103,7 +104,7 @@ class StealStrengthAction(Action):
         within_range = state.distance_to_enemy <= self.parameter_1
         return jnp.logical_and(enough_action_points, within_range)
 
-    def _perform_action(self, state, unit, target):
+    def _perform_action(self, key: chex.PRNGKey, state, unit, target, ability_idx=jnp.int32(-1)):
         # Reduce target's strength
         new_target = target.replace(
             strength_current=jnp.maximum(0, target.strength_current - self.parameter_2)

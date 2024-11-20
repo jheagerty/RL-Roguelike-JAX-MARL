@@ -224,27 +224,29 @@ class RL_Roguelike_JAX_MARL(MultiAgentEnv):
     
     def function_mapper(self, key: chex.PRNGKey, state: GameState, action: int, unit, target):
         """Updated function mapper to handle both base actions and abilities"""
-        def do_base_action():
+        ability_idx = unit.ability_state_1.ability_index
+
+        def do_base_action(key: chex.PRNGKey):
             action_fns = [action.execute for action in base_action_functions]
-            return lax.switch(action, action_fns, state, unit, target)
+            return lax.switch(action, action_fns, key, state, unit, target, ability_idx)
             
-        def do_ability_action():
+        def do_ability_action(key: chex.PRNGKey):
             # Create a function that handles ability execution for each possible ability index
             def execute_ability(i, args):
-                state, unit, target = args
-                return ability_action_functions[i].execute(state, unit, target)
+                key, state, unit, target, ability_idx = args
+                return ability_action_functions[i].execute(key, state, unit, target, ability_idx)
             
-            ability_idx = unit.ability_state_1.ability_index
             return lax.switch(ability_idx, 
-                            [lambda s, u, t: execute_ability(i, (s, u, t)) 
+                            [lambda s, u, t: execute_ability(i, (key, s, u, t, ability_idx)) 
                             for i in range(len(ability_action_functions))],
                             state, unit, target)
-            
+        
+        key, key_ = jax.random.split(key)
         # If action index is less than num_base_actions, do base action, otherwise do ability
         new_state = lax.cond(
             action < num_actions,
-            lambda _: do_base_action(),
-            lambda _: do_ability_action(),
+            lambda _: do_base_action(key_),
+            lambda _: do_ability_action(key_),
             operand=None
         )
         
@@ -302,10 +304,11 @@ class RL_Roguelike_JAX_MARL(MultiAgentEnv):
         old_state = state
 
         # perform player action and resolve the new state
+        key, key_ = jax.random.split(key)
         new_state = lax.cond(
                 jnp.equal(aidx, 0),
-                lambda _: self.function_mapper(key, old_state, action, old_state.player, old_state.enemy),
-                lambda _: self.function_mapper(key, old_state, action, old_state.enemy, old_state.player),
+                lambda _: self.function_mapper(key_, old_state, action, old_state.player, old_state.enemy),
+                lambda _: self.function_mapper(key_, old_state, action, old_state.enemy, old_state.player),
                 operand = None
                 )
 

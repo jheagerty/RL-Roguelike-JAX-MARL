@@ -1,6 +1,7 @@
 # actions.py
 import jax.numpy as jnp
 from jax import lax, debug
+import chex
 from utils import euclidean_distance, is_within_bounds, is_collision, do_invalid_move
 
 class Action:
@@ -36,10 +37,10 @@ class Action:
         """Default validity check."""
         return True
 
-    def execute(self, state, unit, target):
+    def execute(self, key: chex.PRNGKey, state, unit, target, ability_idx=jnp.int32(-1)):
         """Template method pattern for executing actions."""
         def do_action(_):
-            new_state = self._perform_action(state, unit, target)
+            new_state = self._perform_action(key, state, unit, target, ability_idx)
             return self._update_state_for_actor(new_state, unit)
 
         def invalid_move(_):
@@ -52,7 +53,7 @@ class Action:
             None,
         )
 
-    def _perform_action(self, state, unit, target):
+    def _perform_action(self, key: chex.PRNGKey, state, unit, target, ability_idx=jnp.int32(-1)):
         """Override this to implement specific action logic."""
         raise NotImplementedError
         
