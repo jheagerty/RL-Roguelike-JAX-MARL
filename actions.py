@@ -2,6 +2,7 @@
 import jax.numpy as jnp
 from jax import lax, debug
 from utils import euclidean_distance, is_within_bounds, is_collision, do_invalid_move
+import chex
 
 class Action:
     """Base class for all actions in the game."""
@@ -11,6 +12,7 @@ class Action:
         self._parameter_1 = jnp.float32(0)
         self._parameter_2 = jnp.float32(0) 
         self._parameter_3 = jnp.float32(0)
+        self.NO_ABILITY = jnp.int32(-1)
     
     @property
     def ability_description(self):
@@ -36,10 +38,52 @@ class Action:
         """Default validity check."""
         return True
 
-    def execute(self, state, unit, target):
+    def update_ability_cooldown(self, unit, ability_idx):
+        """Updates cooldown for the specified ability slot"""
+        def set_cooldown(_):
+            return lax.switch(ability_idx,
+                [
+                    lambda op: unit.replace(
+                        ability_state_1=unit.ability_state_1.replace(
+                            current_cooldown=jnp.int32(unit.ability_state_1.base_cooldown)
+                        )
+                    ),
+                    # Add more slots as needed
+                ],
+                None  # Pass operand to switch
+            )
+        
+        return lax.cond(
+            jnp.greater_equal(ability_idx, 0),  # Check if it's a valid ability index
+            set_cooldown,
+            lambda _: unit,  # No cooldown update for non-ability actions
+            None
+        )
+    
+    def execute(self, key: chex.PRNGKey, state, unit, target, ability_idx=jnp.int32(-1)):
         """Template method pattern for executing actions."""
         def do_action(_):
-            new_state = self._perform_action(state, unit, target)
+            # First perform the action
+            new_state = self._perform_action(key, state, unit, target, ability_idx)
+            
+            # # Get updated unit WITH its new state
+            # updated_unit = lax.cond(
+            #     jnp.equal(state.player.unit_id, unit.unit_id),
+            #     lambda _: new_state.player,
+            #     lambda _: new_state.enemy,
+            #     operand=None
+            # )
+            
+            # # Then update cooldown if successful
+            # new_unit = self.update_ability_cooldown(updated_unit, ability_idx)
+            
+            # # Update the state with cooldown
+            # final_state = lax.cond(
+            #     jnp.equal(state.player.unit_id, unit.unit_id),
+            #     lambda: new_state.replace(player=new_unit),
+            #     lambda: new_state.replace(enemy=new_unit)
+            # )
+
             return self._update_state_for_actor(new_state, unit)
 
         def invalid_move(_):
@@ -52,7 +96,7 @@ class Action:
             None,
         )
 
-    def _perform_action(self, state, unit, target):
+    def _perform_action(self, key: chex.PRNGKey, state, unit, target, ability_idx=jnp.int32(-1)):
         """Override this to implement specific action logic."""
         raise NotImplementedError
         

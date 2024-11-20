@@ -1,5 +1,6 @@
 # base_actions.py
 import jax.numpy as jnp
+import chex
 from jax import lax, debug
 from utils import euclidean_distance, is_within_bounds, is_collision, do_invalid_move, do_attack
 from actions import Action
@@ -48,7 +49,7 @@ class MoveAction(Action):
         enough_movement_points = unit.movement_points_current >= movement_cost
         return jnp.logical_and(valid_move, enough_movement_points)
 
-    def _perform_action(self, state, unit, target):
+    def _perform_action(self, key: chex.PRNGKey, state, unit, target, ability_idx=jnp.int32(-1)):
         new_x, new_y = unit.location_x + self.dx, unit.location_y + self.dy
         distance = jnp.float32(jnp.sqrt(self.dx**2 + self.dy**2))
         unit_movement_points = jnp.float32(unit.movement_points_current - distance)
@@ -88,7 +89,7 @@ class MeleeAttackAction(Action):#TODO: update to default physical but can be oth
         within_range = state.distance_to_enemy <= unit.melee_attack_range
         return jnp.logical_and(enough_action_points, within_range)
 
-    def _perform_action(self, state, unit, target):
+    def _perform_action(self, key: chex.PRNGKey, state, unit, target, ability_idx=jnp.int32(-1)):
         new_unit = unit.replace(
             action_points_current=jnp.float32(unit.action_points_current - 1)
         )
@@ -111,7 +112,7 @@ class RangedAttackAction(Action):
         within_range = state.distance_to_enemy <= unit.ranged_attack_range
         return jnp.logical_and(enough_action_points, within_range)
 
-    def _perform_action(self, state, unit, target):
+    def _perform_action(self, key: chex.PRNGKey, state, unit, target, ability_idx=jnp.int32(-1)):
         new_unit = unit.replace(
             action_points_current=jnp.float32(unit.action_points_current - 1)
         )
@@ -133,7 +134,7 @@ class EndTurnAction(Action):
     def is_valid(self, state, unit, target):
         return True
 
-    def _perform_action(self, state, unit, target):
+    def _perform_action(self, key: chex.PRNGKey, state, unit, target, ability_idx=jnp.int32(-1)):
         def end_turn_player():
             new_player_state = state.player.replace(
                 action_points_current=jnp.float32(state.player.action_points_max),
