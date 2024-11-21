@@ -31,6 +31,7 @@ from typing import Tuple, Dict
 from functools import partial
 from gymnax.environments.spaces import Discrete, Box
 from jaxmarl.environments.multi_agent_env import MultiAgentEnv
+from jax.experimental import host_callback
 
 import data_classes
 import ability_actions
@@ -50,8 +51,8 @@ ability_action_functions = []
 for create_fn in ability_actions.ability_registry.values():
     ability_action_functions.extend(create_fn())
 
-# Update num_actions
-num_actions = len(base_action_functions)
+# Update num_base_actions
+num_base_actions = len(base_action_functions)
 num_abilities = len(ability_action_functions)
 
 checkpoint_dir = '/home/jvnheagerty/checkpoints'
@@ -93,7 +94,7 @@ class RL_Roguelike_JAX_MARL(MultiAgentEnv):
                 agents) == num_agents, f"Number of agents {len(agents)} does not match number of agents {num_agents}"
             self.agents = agents
 
-        self.num_moves = num_actions + 1  # Add 1 for the ability slot TODO: MAKE DYNAMIC
+        self.num_moves = num_base_actions + 1  # Add 1 for the ability slot TODO: MAKE DYNAMIC
 
         # TODO remove num_moves? no longer append available?
         if obs_size is None:
@@ -103,7 +104,7 @@ class RL_Roguelike_JAX_MARL(MultiAgentEnv):
         if action_spaces is None:
             self.action_spaces = {i: Discrete(self.num_moves) for i in self.agents}
         if observation_spaces is None:
-            self.observation_spaces = {i: Box(low, high, (len(low),), jnp.float32) for i in self.agents}#(18+num_actions,), jnp.float32) for i in self.agents}
+            self.observation_spaces = {i: Box(low, high, (len(low),), jnp.float32) for i in self.agents}#(18+num_base_actions,), jnp.float32) for i in self.agents}
 
     def get_legal_moves(self, state: GameState) -> chex.Array:
         """Get all agents' legal moves"""
@@ -223,28 +224,46 @@ class RL_Roguelike_JAX_MARL(MultiAgentEnv):
         return {a: obs[i] for i, a in enumerate(self.agents)}
     
     def function_mapper(self, key: chex.PRNGKey, state: GameState, action: int, unit, target):
-        """Updated function mapper to handle both base actions and abilities"""
-        ability_idx = unit.ability_state_1.ability_index
-
+        """Map actions to functions and handle base/ability actions"""
+        
         def do_base_action(key: chex.PRNGKey):
-            action_fns = [action.execute for action in base_action_functions]
-            return lax.switch(action, action_fns, key, state, unit, target, ability_idx)
-            
+            def execute_action(i, inputs):
+                key, state, unit, target = inputs
+                return base_action_functions[i].execute(key, state, unit, target, jnp.int32(-1))
+                
+            switch_fns = [
+                lambda args: execute_action(i, args) 
+                for i in range(num_base_actions)
+            ]
+            return lax.switch(action, switch_fns, (key, state, unit, target))
+                        
         def do_ability_action(key: chex.PRNGKey):
-            # Create a function that handles ability execution for each possible ability index
-            def execute_ability(i, args):
-                key, state, unit, target, ability_idx = args
-                return ability_action_functions[i].execute(key, state, unit, target, ability_idx)
+            ability_slot = action - num_base_actions
             
-            return lax.switch(ability_idx, 
-                            [lambda s, u, t: execute_ability(i, (key, s, u, t, ability_idx)) 
-                            for i in range(len(ability_action_functions))],
-                            state, unit, target)
+            # Get ability index directly from unit state
+            ability_idx = unit.ability_state_1.ability_index
+            
+            # Create execute functions for each ability type
+            def execute_ability_n(n, inputs):
+                key, state, unit, target, slot = inputs
+                return ability_action_functions[n].execute(key, state, unit, target, slot)
+            
+            # Create array of functions for switch
+            ability_fns = [
+                lambda x: execute_ability_n(i, x)
+                for i in range(num_abilities)
+            ]
+            
+            # Execute the correct ability based on ability_idx
+            return lax.switch(
+                ability_idx,
+                ability_fns,
+                (key, state, unit, target, ability_slot)
+            )
         
         key, key_ = jax.random.split(key)
-        # If action index is less than num_base_actions, do base action, otherwise do ability
         new_state = lax.cond(
-            action < num_actions,
+            action < num_base_actions,
             lambda _: do_base_action(key_),
             lambda _: do_ability_action(key_),
             operand=None
@@ -266,26 +285,24 @@ class RL_Roguelike_JAX_MARL(MultiAgentEnv):
         """JAX-friendly implementation of action availability checking"""
         # Get base action availability
         base_actions_available = jnp.array(
-            [action.is_valid(state, unit, target) for action in base_action_functions], 
+            [action.is_valid(state, unit, target, -1) for action in base_action_functions], 
             dtype=jnp.int32
         )
         
         # Create validation function array at function definition time
         def validate_ability(ability_idx, state, unit, target):
             def ability_case(i):
-                return ability_action_functions[i].is_valid(state, unit, target)
+                return ability_action_functions[i].is_valid(state, unit, target, ability_idx)
                 
             return lax.switch(ability_idx, [lambda: ability_case(i) for i in range(len(ability_action_functions))])
         
         # Check cooldown and validate ability
         ability_idx = unit.ability_state_1.ability_index
-        cooldown_check = unit.ability_state_1.current_cooldown == 0
         ability_valid = validate_ability(ability_idx, state, unit, target)
-        ability_available = jnp.logical_and(cooldown_check, ability_valid)
         
         return jnp.concatenate([
             base_actions_available, 
-            jnp.array([ability_available], dtype=jnp.int32)
+            jnp.array([ability_valid], dtype=jnp.int32)
         ])
 
     @partial(jax.jit, static_argnums=[0])

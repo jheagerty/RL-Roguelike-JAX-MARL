@@ -38,7 +38,7 @@ class MoveAction(Action):
         
         self._ability_description = f"Move {direction} ({movement_type}, {distance:.1f} movement points)"
 
-    def is_valid(self, state, unit, target):
+    def is_valid(self, state, unit, target, ability_idx):
         new_x, new_y = unit.location_x + self.dx, unit.location_y + self.dy
         within_bounds = is_within_bounds(new_x, new_y)
         collision_enemy = is_collision(new_x, new_y, state.enemy.location_x, state.enemy.location_y)
@@ -84,14 +84,15 @@ class MeleeAttackAction(Action):#TODO: update to default physical but can be oth
     def __init__(self):
         super().__init__()
 
-    def is_valid(self, state, unit, target):
+    def is_valid(self, state, unit, target, ability_idx):
         enough_action_points = unit.action_points_current >= 1
         within_range = state.distance_to_enemy <= unit.melee_attack_range
         return jnp.logical_and(enough_action_points, within_range)
 
     def _perform_action(self, key: chex.PRNGKey, state, unit, target, ability_idx=jnp.int32(-1)):
         new_unit = unit.replace(
-            action_points_current=jnp.float32(unit.action_points_current - 1)
+            action_points_current=jnp.float32(unit.action_points_current - 1),
+            base_melee_attack_count = unit.base_melee_attack_count + 1,
         )
         new_unit, new_target = do_attack(new_unit, target, 
                                        AttackType.MELEE, 
@@ -107,14 +108,15 @@ class RangedAttackAction(Action):
     def __init__(self):
         super().__init__()
 
-    def is_valid(self, state, unit, target):
+    def is_valid(self, state, unit, target, ability_idx):
         enough_action_points = unit.action_points_current >= 1
         within_range = state.distance_to_enemy <= unit.ranged_attack_range
         return jnp.logical_and(enough_action_points, within_range)
 
     def _perform_action(self, key: chex.PRNGKey, state, unit, target, ability_idx=jnp.int32(-1)):
         new_unit = unit.replace(
-            action_points_current=jnp.float32(unit.action_points_current - 1)
+            action_points_current=jnp.float32(unit.action_points_current - 1),
+            base_ranged_attack_count = unit.base_ranged_attack_count + 1,
         )
         new_unit, new_target = do_attack(new_unit, target,
                                        AttackType.RANGED,
@@ -131,12 +133,29 @@ class EndTurnAction(Action):
         super().__init__()
         self.num_agents = 2
 
-    def is_valid(self, state, unit, target):
+    def is_valid(self, state, unit, target, ability_idx):
         return True
 
     def _perform_action(self, key: chex.PRNGKey, state, unit, target, ability_idx=jnp.int32(-1)):
+        def reduce_cooldowns(unit):
+            def update_ability_state_cooldown(ability_state):
+                return ability_state.replace(
+                    current_cooldown=jnp.maximum(0, ability_state.current_cooldown - 1)
+                )
+            
+            # Use lax.switch for ability states
+            return lax.switch(0,  # Currently only handling first ability
+                [
+                    lambda _: unit.replace(
+                        ability_state_1=update_ability_state_cooldown(unit.ability_state_1)
+                    ),
+                    # Add more cases here for additional abilities
+                ],
+                None
+            )
+
         def end_turn_player():
-            new_player_state = state.player.replace(
+            new_player_state = reduce_cooldowns(state.player).replace(
                 action_points_current=jnp.float32(state.player.action_points_max),
                 movement_points_current=jnp.float32(state.player.movement_points_max),
             )
@@ -150,7 +169,7 @@ class EndTurnAction(Action):
             )
 
         def end_turn_enemy():
-            new_enemy_state = state.enemy.replace(
+            new_enemy_state = reduce_cooldowns(state.enemy).replace(
                 action_points_current=jnp.float32(state.enemy.action_points_max),
                 movement_points_current=jnp.float32(state.enemy.movement_points_max),
             )

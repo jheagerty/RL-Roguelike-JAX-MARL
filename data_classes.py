@@ -269,7 +269,7 @@ schema = { # TODO: make function ? so ability index can be dynamic
     },
     "barrier_percentage": {
       "type": float,
-      "default": jnp.float32(0),
+      "default": jnp.float32(0.1),
       "obs": True,
       "low": 0,
       "high": 1,
@@ -451,14 +451,14 @@ schema = { # TODO: make function ? so ability index can be dynamic
     },
     "melee_base_attack_damage": {
       "type": float,
-      "default": jnp.float32(225),
+      "default": jnp.float32(25),
       "obs": True,
       "low": -1000,
       "high": 1000,
     },
     "melee_attack_range": {
       "type": float,
-      "default": jnp.float32(2.6),
+      "default": jnp.float32(1.6),
       "obs": True,
       "low": 0,
       "high": 10,
@@ -1003,6 +1003,46 @@ schema = { # TODO: make function ? so ability index can be dynamic
     "available_actions": {
         "type": chex.Array,
         "default": jnp.zeros(12), #TODO: make this dynamic
+        "obs": False
+    },
+    "suicide_ability_count": {
+        "type": int,
+        "default": jnp.int32(0),
+        "obs": False
+    },
+    "steal_strength_ability_count": {
+        "type": int,
+        "default": jnp.int32(0),
+        "obs": False
+    },
+    "multi_attack_ability_count": {
+        "type": int,
+        "default": jnp.int32(0),
+        "obs": False
+    },
+    "return_ability_count": {
+        "type": int,
+        "default": jnp.int32(0),
+        "obs": False
+    },
+    "strength_regen_ability_count": {
+        "type": int,
+        "default": jnp.int32(0),
+        "obs": False
+    },
+    "add_barrier_ability_count": {
+        "type": int,
+        "default": jnp.int32(0),
+        "obs": False
+    },
+    "base_melee_attack_count": {
+        "type": int,
+        "default": jnp.int32(0),
+        "obs": False
+    },
+    "base_ranged_attack_count": {
+        "type": int,
+        "default": jnp.int32(0),
         "obs": False
     },
   },
