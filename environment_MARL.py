@@ -96,7 +96,7 @@ class RL_Roguelike_JAX_MARL(MultiAgentEnv):
                 agents) == num_agents, f"Number of agents {len(agents)} does not match number of agents {num_agents}"
             self.agents = agents
 
-        self.num_moves = num_base_actions + 1  # Add 1 for the ability slot TODO: MAKE DYNAMIC
+        self.num_moves = num_base_actions + 2  # Add 1 for the ability slot TODO: MAKE DYNAMIC
 
         # TODO remove num_moves? no longer append available?
         if obs_size is None:
@@ -123,18 +123,6 @@ class RL_Roguelike_JAX_MARL(MultiAgentEnv):
         legal_moves = _legal_moves(self.agent_range, state)
 
         return {a: legal_moves[i] for i, a in enumerate(self.agents)}
-    
-    def pick_random_abilities(self, key: chex.PRNGKey) -> Tuple[int, int]:
-        """Randomly pick different ability indices to assign to player and enemy"""
-        
-        # Generate random indices without replacement 
-        key1, key2 = jax.random.split(key)
-        idx1 = jax.random.randint(key1, shape=(), minval=0, maxval=num_abilities)
-        idx2 = jax.random.choice(key2, num_abilities-1, shape=(), p=jnp.ones(num_abilities-1)/(num_abilities-1), 
-                                replace=False)
-        idx2 = jnp.where(idx2 >= idx1, idx2 + 1, idx2)
-        
-        return idx1, idx2
 
     @partial(jax.jit, static_argnums=[0])
     def reset(self, key: chex.PRNGKey) -> Tuple[Dict, GameState]:
@@ -145,7 +133,8 @@ class RL_Roguelike_JAX_MARL(MultiAgentEnv):
         x1, y1, x2, y2 = generate_unique_pairs(key_pos)
         initial_distance = jnp.float32(euclidean_distance(x1, y1, x2, y2))
 
-        ability_idx1, ability_idx2 = self.pick_random_abilities(key_abilities)
+        ability_idx1, ability_idx2, pick_pool_0, pick_pool_1, pick_pool_2 = jax.random.choice(key, num_abilities, shape=(5,), replace=False)
+        # pick_pool = tuple(pick_pool)
 
         # Get ability parameters using vmap
         def get_ability_params(idx):
@@ -153,24 +142,54 @@ class RL_Roguelike_JAX_MARL(MultiAgentEnv):
 
         player_params = get_ability_params(ability_idx1)
         enemy_params = get_ability_params(ability_idx2)
+        pool_ability_1_params = get_ability_params(pick_pool_0)
+        pool_ability_2_params = get_ability_params(pick_pool_1)
+        pool_ability_3_params = get_ability_params(pick_pool_2)
 
         # Create ability states
         player_ability = AbilityState(
-            ability_index=ability_idx1,
-            base_cooldown=player_params[0],
+            ability_index=jnp.int32(ability_idx1),
+            base_cooldown=jnp.int32(player_params[0]),
             current_cooldown=jnp.int32(0),
-            parameter_1=player_params[1],
-            parameter_2=player_params[2],
-            parameter_3=player_params[3]
+            parameter_1=jnp.float32(player_params[1]),
+            parameter_2=jnp.float32(player_params[2]),
+            parameter_3=jnp.float32(player_params[3])
         )
         
         enemy_ability = AbilityState(
-            ability_index=ability_idx2,
-            base_cooldown=enemy_params[0],
+            ability_index=jnp.int32(ability_idx2),
+            base_cooldown=jnp.int32(enemy_params[0]),
             current_cooldown=jnp.int32(0),
-            parameter_1=enemy_params[1],
-            parameter_2=enemy_params[2],
-            parameter_3=enemy_params[3]
+            parameter_1=jnp.float32(enemy_params[1]),
+            parameter_2=jnp.float32(enemy_params[2]),
+            parameter_3=jnp.float32(enemy_params[3])
+        )
+        
+        pool_ability_1 = AbilityState(
+            ability_index=jnp.int32(pick_pool_0),
+            base_cooldown=jnp.int32(pool_ability_1_params[0]),
+            current_cooldown=jnp.int32(0),
+            parameter_1=jnp.float32(pool_ability_1_params[1]),
+            parameter_2=jnp.float32(pool_ability_1_params[2]),
+            parameter_3=jnp.float32(pool_ability_1_params[3])
+        )
+        
+        pool_ability_2 = AbilityState(
+            ability_index=jnp.int32(pick_pool_1),
+            base_cooldown=jnp.int32(pool_ability_2_params[0]),
+            current_cooldown=jnp.int32(0),
+            parameter_1=jnp.float32(pool_ability_2_params[1]),
+            parameter_2=jnp.float32(pool_ability_2_params[2]),
+            parameter_3=jnp.float32(pool_ability_2_params[3])
+        )
+        
+        pool_ability_3 = AbilityState(
+            ability_index=jnp.int32(pick_pool_2),
+            base_cooldown=jnp.int32(pool_ability_3_params[0]),
+            current_cooldown=jnp.int32(0),
+            parameter_1=jnp.float32(pool_ability_3_params[1]),
+            parameter_2=jnp.float32(pool_ability_3_params[2]),
+            parameter_3=jnp.float32(pool_ability_3_params[3])
         )
 
         # Create states
@@ -201,6 +220,14 @@ class RL_Roguelike_JAX_MARL(MultiAgentEnv):
             initial_distance=initial_distance,
             cur_player_idx=jnp.zeros(self.num_agents).at[0].set(1),
             terminal=False,
+            pool_ability_1=pool_ability_1,
+            pool_ability_2=pool_ability_2,
+            pool_ability_3=pool_ability_3,
+            pick_mode=1,
+            pool_ability_1_picked=jnp.int32(0),
+            pool_ability_2_picked=jnp.int32(0),
+            pool_ability_3_picked=jnp.int32(0),
+            pick_count=jnp.int32(0),
         )
 
         # Update available actions using lax.switch based validation
@@ -226,22 +253,29 @@ class RL_Roguelike_JAX_MARL(MultiAgentEnv):
         return {a: obs[i] for i, a in enumerate(self.agents)}
     
     def function_mapper(self, key: chex.PRNGKey, state: GameState, action: int, unit, target):
-        """Updated function mapper to handle both base actions and abilities"""
-        ability_idx = unit.ability_state_1.ability_index
-
+        """Handle both ability slots"""
         def do_base_action(key: chex.PRNGKey):
-            return lax.switch(action, base_action_fns, key, state, unit, target, ability_idx)
+            return lax.switch(action, base_action_fns, key, state, unit, target, jnp.int32(-1))
             
-        def do_ability_action(key: chex.PRNGKey):
-            ability_slot = action - num_base_actions
-            return lax.switch(ability_idx, ability_action_fns, key, state, unit, target, ability_slot)
+        def do_ability_1_action(key: chex.PRNGKey):
+            return lax.switch(unit.ability_state_1.ability_index, 
+                            ability_action_fns, key, state, unit, target, jnp.int32(0))
+                            
+        def do_ability_2_action(key: chex.PRNGKey):
+            return lax.switch(unit.ability_state_2.ability_index, 
+                            ability_action_fns, key, state, unit, target, jnp.int32(1))
         
         key, key_ = jax.random.split(key)
-        # If action index is less than num_base_actions, do base action, otherwise do ability
-        new_state = lax.cond(
+        
+        return lax.cond(
             action < num_base_actions,
             lambda _: do_base_action(key_),
-            lambda _: do_ability_action(key_),
+            lambda _: lax.cond(
+                action == num_base_actions,
+                lambda _: do_ability_1_action(key_),
+                lambda _: do_ability_2_action(key_),
+                operand=None
+            ),
             operand=None
         )
         
@@ -258,29 +292,24 @@ class RL_Roguelike_JAX_MARL(MultiAgentEnv):
         return new_state
 
     def get_available_actions(self, unit, target, state: GameState) -> chex.Array:
-        """JAX-friendly implementation of action availability checking"""
-        # Get base action availability
         base_actions_available = jnp.array(
             [action.is_valid(state, unit, target) for action in base_action_functions], 
             dtype=jnp.int32
         )
         
-        # Create validation function array at function definition time
-        def validate_ability(ability_idx, state, unit, target):
+        def validate_ability(ability_idx, ability_slot, state, unit, target):
             def ability_case(i):
                 return ability_action_functions[i].is_valid(state, unit, target)
                 
-            return lax.switch(ability_idx, [lambda: ability_case(i) for i in range(len(ability_action_functions))])
+            return lax.switch(ability_idx, 
+                            [lambda: ability_case(i) for i in range(len(ability_action_functions))])
         
-        # Check cooldown and validate ability
-        ability_idx = unit.ability_state_1.ability_index
-        cooldown_check = unit.ability_state_1.current_cooldown == 0
-        ability_valid = validate_ability(ability_idx, state, unit, target)
-        ability_available = jnp.logical_and(cooldown_check, ability_valid)
+        ability_1_available = validate_ability(unit.ability_state_1.ability_index, 0, state, unit, target)
+        ability_2_available = validate_ability(unit.ability_state_2.ability_index, 1, state, unit, target)
         
         return jnp.concatenate([
-            base_actions_available, 
-            jnp.array([ability_available], dtype=jnp.int32)
+            base_actions_available,
+            jnp.array([ability_1_available, ability_2_available], dtype=jnp.int32)
         ])
 
     @partial(jax.jit, static_argnums=[0])

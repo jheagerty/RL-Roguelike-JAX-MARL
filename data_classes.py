@@ -1109,6 +1109,51 @@ schema = { # TODO: make function ? so ability index can be dynamic
         "default": False,
         "obs": False
         },
+    "pool_ability_1": {
+        "type": "AbilityState",
+        "obs": True
+        },
+    "pool_ability_2": {
+        "type": "AbilityState",
+        "obs": True
+        },
+    "pool_ability_3": {
+        "type": "AbilityState",
+        "obs": True
+        },
+    "pick_mode": {
+        "type": int,
+        "default": jnp.int32(1),
+        "obs": True
+        },
+    "pool_ability_1_picked": {
+        "type": int,
+        "default": jnp.int32(0),
+        "obs": True,
+        "low": 0,
+        "high": 1,
+        },
+    "pool_ability_2_picked": {
+        "type": int,
+        "default": jnp.int32(0),
+        "obs": True,
+        "low": 0,
+        "high": 1,
+        },
+    "pool_ability_3_picked": {
+        "type": int,
+        "default": jnp.int32(0),
+        "obs": True,
+        "low": 0,
+        "high": 1,
+        },
+    "pick_count": {
+        "type": int,
+        "default": jnp.int32(0),
+        "obs": True,
+        "low": 0,
+        "high": 1,
+        },
   },
 }
 

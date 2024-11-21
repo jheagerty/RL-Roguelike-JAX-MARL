@@ -28,7 +28,8 @@ class SuicideAction(Action):
     def is_valid(self, state, unit, target):
         enough_action_points = unit.action_points_current >= 1
         within_range = state.distance_to_enemy <= self.parameter_1
-        return jnp.logical_and(enough_action_points, within_range)
+        not_pick_mode = state.pick_mode == 0
+        return jnp.logical_and(jnp.logical_and(enough_action_points, within_range), not_pick_mode)
 
     def _perform_action(self, key: chex.PRNGKey, state, unit, target, ability_idx=jnp.int32(-1)):
         # Create position offsets as a static array
@@ -106,7 +107,8 @@ class StealStrengthAction(Action):
     def is_valid(self, state, unit, target):
         enough_action_points = unit.action_points_current >= 1
         within_range = state.distance_to_enemy <= self.parameter_1
-        return jnp.logical_and(enough_action_points, within_range)
+        not_pick_mode = state.pick_mode == 0
+        return jnp.logical_and(jnp.logical_and(enough_action_points, within_range), not_pick_mode)
 
     def _perform_action(self, key: chex.PRNGKey, state, unit, target, ability_idx=jnp.int32(-1)):
         # Reduce target's strength
@@ -140,14 +142,8 @@ class MultiAttackAction(Action):
     def is_valid(self, state, unit, target):#, ability_idx):
         enough_action_points = unit.action_points_current >= 1
         within_range = state.distance_to_enemy <= self.parameter_1
-        
-        # ability_state = lax.switch(ability_idx,
-        #     [lambda _: unit.ability_state_1],
-        #     None
-        # )
-        # cooldown_ready = ability_state.current_cooldown == 0
-        
-        return jnp.logical_and(enough_action_points, within_range)#jnp.logical_and(jnp.logical_and(enough_action_points, within_range), cooldown_ready)
+        not_pick_mode = state.pick_mode == 0
+        return jnp.logical_and(jnp.logical_and(enough_action_points, within_range), not_pick_mode)
 
     def _perform_action(self, key: chex.PRNGKey, state, unit, target, ability_idx=jnp.int32(-1)):
         
@@ -175,17 +171,13 @@ class ReturnAction(Action):
     def __init__(self):
         super().__init__()
         self._ability_description = "Set physical damage return to current strength"
-        self._base_cooldown = jnp.int32(3)
+        self._base_cooldown = jnp.int32(10)
         # self._parameter_1 = jnp.float32(1)  # duration multiplier
         
     def is_valid(self, state, unit, target):#, ability_idx):
         enough_action_points = unit.action_points_current >= 1
-        # ability_state = lax.switch(ability_idx,
-        #     [lambda _: unit.ability_state_1],
-        #     None
-        # )
-        # cooldown_ready = ability_state.current_cooldown == 0
-        return enough_action_points#jnp.logical_and(enough_action_points, cooldown_ready)
+        not_pick_mode = state.pick_mode == 0
+        return jnp.logical_and(enough_action_points, not_pick_mode)
 
     def _perform_action(self, key: chex.PRNGKey, state, unit, target, ability_idx=jnp.int32(-1)):
         new_unit = unit.replace(
@@ -207,17 +199,13 @@ class StrengthRegenAction(Action):
     def __init__(self):
         super().__init__()
         self._ability_description = "Heal based on current strength"
-        self._base_cooldown = jnp.int32(4)
+        self._base_cooldown = jnp.int32(10)
         self._parameter_1 = jnp.float32(5)  # healing multiplier
         
     def is_valid(self, state, unit, target):#, ability_idx):
         enough_action_points = unit.action_points_current >= 1
-        # ability_state = lax.switch(ability_idx,
-        #     [lambda _: unit.ability_state_1],
-        #     None
-        # )
-        # cooldown_ready = ability_state.current_cooldown == 0
-        return enough_action_points#jnp.logical_and(enough_action_points, cooldown_ready)
+        not_pick_mode = state.pick_mode == 0
+        return jnp.logical_and(enough_action_points, not_pick_mode)
 
     def _perform_action(self, key: chex.PRNGKey, state, unit, target, ability_idx=jnp.int32(-1)):
         healing = unit.strength_current * self.parameter_1
@@ -242,17 +230,13 @@ class AddBarrierAction(Action):
     def __init__(self):
         super().__init__()
         self._ability_description = "Add barrier based on current resolve"
-        self._base_cooldown = jnp.int32(4)
+        self._base_cooldown = jnp.int32(20)
         self._parameter_1 = jnp.float32(5)  # barrier multiplier
         
     def is_valid(self, state, unit, target):#, ability_idx):
         enough_action_points = unit.action_points_current >= 1
-        # ability_state = lax.switch(ability_idx,
-        #     [lambda _: unit.ability_state_1],
-        #     None
-        # )
-        # cooldown_ready = ability_state.current_cooldown == 0
-        return enough_action_points#jnp.logical_and(enough_action_points, cooldown_ready)
+        not_pick_mode = state.pick_mode == 0
+        return jnp.logical_and(enough_action_points, not_pick_mode)
 
     def _perform_action(self, key: chex.PRNGKey, state, unit, target, ability_idx=jnp.int32(-1)):
         barrier_amount = unit.resolve_current * self.parameter_1
