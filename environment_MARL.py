@@ -46,10 +46,12 @@ from render import render_game_state
 base_action_functions = []
 for create_fn in base_actions.base_action_registry.values():
     base_action_functions.extend(create_fn())
+base_action_fns = [action.execute for action in base_action_functions]
 
 ability_action_functions = []
 for create_fn in ability_actions.ability_registry.values():
     ability_action_functions.extend(create_fn())
+ability_action_fns = [action.execute for action in ability_action_functions]
 
 # Update num_base_actions
 num_base_actions = len(base_action_functions)
@@ -229,7 +231,7 @@ class RL_Roguelike_JAX_MARL(MultiAgentEnv):
         def do_base_action(key: chex.PRNGKey):
             def execute_action(i, inputs):
                 key, state, unit, target = inputs
-                return base_action_functions[i].execute(key, state, unit, target, jnp.int32(-1))
+                return lax.switch(action, base_action_fns, key, state, unit, target, jnp.int32(-1))
                 
             switch_fns = [
                 lambda args: execute_action(i, args) 
@@ -243,23 +245,8 @@ class RL_Roguelike_JAX_MARL(MultiAgentEnv):
             # Get ability index directly from unit state
             ability_idx = unit.ability_state_1.ability_index
             
-            # Create execute functions for each ability type
-            def execute_ability_n(n, inputs):
-                key, state, unit, target, slot = inputs
-                return ability_action_functions[n].execute(key, state, unit, target, slot)
-            
-            # Create array of functions for switch
-            ability_fns = [
-                lambda x: execute_ability_n(i, x)
-                for i in range(num_abilities)
-            ]
-            
             # Execute the correct ability based on ability_idx
-            return lax.switch(
-                ability_idx,
-                ability_fns,
-                (key, state, unit, target, ability_slot)
-            )
+            return lax.switch(ability_idx, ability_action_fns, key, state, unit, target, ability_slot)
         
         key, key_ = jax.random.split(key)
         new_state = lax.cond(
