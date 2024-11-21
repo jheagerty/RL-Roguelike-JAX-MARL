@@ -91,7 +91,8 @@ class MeleeAttackAction(Action):#TODO: update to default physical but can be oth
 
     def _perform_action(self, key: chex.PRNGKey, state, unit, target, ability_idx=jnp.int32(-1)):
         new_unit = unit.replace(
-            action_points_current=jnp.float32(unit.action_points_current - 1)
+            action_points_current=jnp.float32(unit.action_points_current - 1),
+            base_melee_attack_count = unit.base_melee_attack_count + 1,
         )
         new_unit, new_target = do_attack(new_unit, target, 
                                        AttackType.MELEE, 
@@ -114,7 +115,8 @@ class RangedAttackAction(Action):
 
     def _perform_action(self, key: chex.PRNGKey, state, unit, target, ability_idx=jnp.int32(-1)):
         new_unit = unit.replace(
-            action_points_current=jnp.float32(unit.action_points_current - 1)
+            action_points_current=jnp.float32(unit.action_points_current - 1),
+            base_ranged_attack_count = unit.base_ranged_attack_count + 1,
         )
         new_unit, new_target = do_attack(new_unit, target,
                                        AttackType.RANGED,
@@ -139,6 +141,7 @@ class EndTurnAction(Action):
             new_player_state = state.player.replace(
                 action_points_current=jnp.float32(state.player.action_points_max),
                 movement_points_current=jnp.float32(state.player.movement_points_max),
+                end_turn_count = unit.end_turn_count + 1,
             )
             aidx = jnp.nonzero(state.cur_player_idx, size=1)[0][0]
             aidx = (aidx + 1) % self.num_agents
@@ -153,6 +156,7 @@ class EndTurnAction(Action):
             new_enemy_state = state.enemy.replace(
                 action_points_current=jnp.float32(state.enemy.action_points_max),
                 movement_points_current=jnp.float32(state.enemy.movement_points_max),
+                end_turn_count = unit.end_turn_count + 1,
             )
             aidx = jnp.nonzero(state.cur_player_idx, size=1)[0][0]
             aidx = (aidx + 1) % self.num_agents

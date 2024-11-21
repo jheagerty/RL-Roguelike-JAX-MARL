@@ -30,19 +30,25 @@ class SuicideAction(Action):
         return jnp.logical_and(enough_action_points, within_range)
 
     def _perform_action(self, key: chex.PRNGKey, state, unit, target, ability_idx=jnp.int32(-1)):
-        # Generate all 8 adjacent grid positions
-        adjacent_positions = [
-            (target.location_x + dx, target.location_y + dy)
-            for dx, dy in [(-1,-1), (-1,0), (-1,1), (0,-1), (0,1), (1,-1), (1,0), (1,1)]
-        ]
+        # Create position offsets as a static array
+        position_offsets = jnp.array([
+            [-1, -1], [-1, 0], [-1, 1],
+            [0, -1],           [0, 1],
+            [1, -1],  [1, 0],  [1, 1]
+        ])
         
-        # Find closest valid adjacent position
-        best_x, best_y = adjacent_positions[0]
-        best_dist = euclidean_distance(unit.location_x, unit.location_y, best_x, best_y)
+        # Initialize best position
+        init_pos = position_offsets[0]
+        init_x = target.location_x + init_pos[0]
+        init_y = target.location_y + init_pos[1]
+        init_dist = euclidean_distance(unit.location_x, unit.location_y, init_x, init_y)
         
         def update_best_position(i, val):
-            x, y = adjacent_positions[i]
+            offset = lax.dynamic_slice(position_offsets, (i, 0), (1, 2))[0]
+            x = target.location_x + offset[0]
+            y = target.location_y + offset[1]
             dist = euclidean_distance(unit.location_x, unit.location_y, x, y)
+            
             use_new = jnp.logical_and(
                 is_within_bounds(x, y),
                 dist < val[2]
@@ -53,24 +59,21 @@ class SuicideAction(Action):
                 lambda _: val,
                 None
             )
-            
-        new_x, new_y, _ = lax.fori_loop(1, 8, update_best_position, (best_x, best_y, best_dist))
-
-        damage_dealt = self.parameter_2 + unit.strength_current
-
-        # Apply damage using do_damage utility
-        new_unit, new_target = do_damage(unit, target, damage_dealt, DamageType.PURE)
-        # Do base_damage to self
-        new_unit, _ = do_damage(unit, new_unit, self.parameter_2, DamageType.PURE) #TODO: don't return self damage
         
-        # Update position and action points
+        new_x, new_y, _ = lax.fori_loop(1, 8, update_best_position, (init_x, init_y, init_dist))
+        
+        # Rest of the function remains the same...
+        damage_dealt = self.parameter_2 + unit.strength_current
+        new_unit, new_target = do_damage(unit, target, damage_dealt, DamageType.PURE)
+        new_unit, _ = do_damage(unit, new_unit, self.parameter_2, DamageType.PURE)
+        
         new_unit = new_unit.replace(
-            action_points_current=jnp.float32(new_unit.action_points_current - 1),
-            location_x=jnp.float32(new_x),
-            location_y=jnp.float32(new_y)
+            action_points_current=new_unit.action_points_current - 1,
+            location_x=jnp.int32(new_x),
+            location_y=jnp.int32(new_y),
+            suicide_ability_count = unit.suicide_ability_count + 1,
         )
         
-        # Calculate new distance
         new_distance = euclidean_distance(new_x, new_y, target.location_x, target.location_y)
         
         return lax.cond(
@@ -113,7 +116,8 @@ class StealStrengthAction(Action):
         # Increase caster's strength and reduce action points
         new_unit = unit.replace(
             strength_current=unit.strength_current + self.parameter_2,
-            action_points_current=unit.action_points_current - 1
+            action_points_current=unit.action_points_current - 1,
+            steal_strength_ability_count = unit.steal_strength_ability_count + 1,
         )
 
         return lax.cond(

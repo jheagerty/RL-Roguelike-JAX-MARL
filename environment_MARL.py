@@ -31,6 +31,7 @@ from typing import Tuple, Dict
 from functools import partial
 from gymnax.environments.spaces import Discrete, Box
 from jaxmarl.environments.multi_agent_env import MultiAgentEnv
+from jax.experimental import host_callback
 
 import data_classes
 import ability_actions
@@ -235,11 +236,17 @@ class RL_Roguelike_JAX_MARL(MultiAgentEnv):
             def execute_ability(i, args):
                 key, state, unit, target, ability_idx = args
                 return ability_action_functions[i].execute(key, state, unit, target, ability_idx)
-            
-            return lax.switch(ability_idx, 
-                            [lambda s, u, t: execute_ability(i, (key, s, u, t, ability_idx)) 
-                            for i in range(len(ability_action_functions))],
-                            state, unit, target)
+        
+            ability_fns = [action.execute for action in ability_action_functions]
+            host_callback.id_print({
+            "ability_idx": ability_idx,
+            "key": key,
+            # "ability_fns": str(ability_fns),
+            # "unit": unit,
+            # "target": target
+            })
+
+            return lax.switch(ability_idx, ability_fns, key, state, unit, target, 0)
         
         key, key_ = jax.random.split(key)
         # If action index is less than num_base_actions, do base action, otherwise do ability
