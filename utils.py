@@ -77,6 +77,13 @@ def get_available_actions(
 
 def take_damage(attacker, defender, damage, damage_type: DamageType):
     """Apply damage to defender considering resistances"""
+        # Handle barrier first
+    damage_to_barrier = jnp.minimum(damage, defender.barrier_current)
+    remaining_damage = jnp.maximum(jnp.float32(0), damage - damage_to_barrier)
+    defender = defender.replace(
+        barrier_current=jnp.float32(jnp.maximum(0, defender.barrier_current - damage_to_barrier))
+    )
+
     def process_physical_damage(inputs):
         attacker, defender, damage = inputs
         
@@ -137,7 +144,7 @@ def take_damage(attacker, defender, damage, damage_type: DamageType):
             lambda x: process_magical_damage(x),
             lambda x: process_pure_damage(x)
         ],
-        (attacker, defender, damage)
+        (attacker, defender, remaining_damage)
     )
 
 def do_damage(attacker, defender, damage, damage_type: DamageType, return_damage: bool = False): # TODO: check how we do with negative damage

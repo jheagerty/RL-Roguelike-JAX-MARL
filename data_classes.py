@@ -458,7 +458,7 @@ schema = { # TODO: make function ? so ability index can be dynamic
     },
     "melee_attack_range": {
       "type": float,
-      "default": jnp.float32(2.6),
+      "default": jnp.float32(2.1),
       "obs": True,
       "low": 0,
       "high": 10,
@@ -989,6 +989,10 @@ schema = { # TODO: make function ? so ability index can be dynamic
       "high": True,
     },
     "ability_state_1": {
+      "type": "AbilityState",
+      "obs": True
+    },
+    "ability_state_2": {
       "type": "AbilityState",
       "obs": True
     },

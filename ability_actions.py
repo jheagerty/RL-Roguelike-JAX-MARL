@@ -1,9 +1,9 @@
 import jax.numpy as jnp
 import chex
 from jax import lax, debug
-from utils import euclidean_distance, is_within_bounds, is_collision, do_invalid_move, do_damage
+from utils import euclidean_distance, is_within_bounds, is_collision, do_invalid_move, do_damage, do_attack
 from actions import Action
-from data_classes import DamageType
+from data_classes import AttackType, DamageType
 
 # Create global registry
 ability_registry = {}
@@ -22,7 +22,8 @@ class SuicideAction(Action):
         self._ability_description = "Deal damage based on strength to an enemy and take damage yourself"
         self._base_cooldown = jnp.int32(3)
         self._parameter_1 = jnp.float32(8)  # range
-        self._parameter_2 = jnp.float32(5)  # base_damage
+        self._parameter_2 = jnp.float32(0)  # base_damage
+        self._parameter_3 = jnp.float32(3)  # strength multiplier
         
     def is_valid(self, state, unit, target):
         enough_action_points = unit.action_points_current >= 1
@@ -63,7 +64,7 @@ class SuicideAction(Action):
         new_x, new_y, _ = lax.fori_loop(1, 8, update_best_position, (init_x, init_y, init_dist))
         
         # Rest of the function remains the same...
-        damage_dealt = self.parameter_2 + unit.strength_current
+        damage_dealt = self.parameter_2 + (self.parameter_3 * unit.strength_current)
         new_unit, new_target = do_damage(unit, target, damage_dealt, DamageType.PURE)
         new_unit, _ = do_damage(unit, new_unit, self.parameter_2, DamageType.PURE)
         
@@ -125,7 +126,151 @@ class StealStrengthAction(Action):
             lambda: state.replace(player=new_unit, enemy=new_target),
             lambda: state.replace(player=new_target, enemy=new_unit)
         )
-    
+
+# Multi Attack - in one action do three ranged attacks, cooldwon 1, costs 1 action point
+register_action("MultiAttackAction", lambda: [MultiAttackAction()])
+
+class MultiAttackAction(Action):
+    def __init__(self):
+        super().__init__()
+        self._ability_description = "Perform three ranged attacks in one action"
+        self._base_cooldown = jnp.int32(1)
+        self._parameter_1 = jnp.float32(8)  # range
+        
+    def is_valid(self, state, unit, target):#, ability_idx):
+        enough_action_points = unit.action_points_current >= 1
+        within_range = state.distance_to_enemy <= self.parameter_1
+        
+        # ability_state = lax.switch(ability_idx,
+        #     [lambda _: unit.ability_state_1],
+        #     None
+        # )
+        # cooldown_ready = ability_state.current_cooldown == 0
+        
+        return jnp.logical_and(enough_action_points, within_range)#jnp.logical_and(jnp.logical_and(enough_action_points, within_range), cooldown_ready)
+
+    def _perform_action(self, key: chex.PRNGKey, state, unit, target, ability_idx=jnp.int32(-1)):
+        
+        # Perform three attacks in sequence
+        new_unit, new_target = do_attack(unit, target, AttackType.RANGED, DamageType.PHYSICAL)
+        new_unit, new_target = do_attack(new_unit, new_target, AttackType.RANGED, DamageType.PHYSICAL)
+        new_unit, new_target = do_attack(new_unit, new_target, AttackType.RANGED, DamageType.PHYSICAL)
+        
+        # Update action points
+        new_unit = new_unit.replace(
+            action_points_current=new_unit.action_points_current - 1,
+            multi_attack_ability_count = new_unit.multi_attack_ability_count + 1,
+        )
+        
+        return lax.cond(
+            jnp.equal(state.player.unit_id, unit.unit_id),
+            lambda: state.replace(player=new_unit, enemy=new_target),
+            lambda: state.replace(player=new_target, enemy=new_unit)
+        )
+
+# Return - user sets physical_damage_return to their current strength, cooldown 3, costs 1 action point
+register_action("ReturnAction", lambda: [ReturnAction()])
+
+class ReturnAction(Action):
+    def __init__(self):
+        super().__init__()
+        self._ability_description = "Set physical damage return to current strength"
+        self._base_cooldown = jnp.int32(3)
+        # self._parameter_1 = jnp.float32(1)  # duration multiplier
+        
+    def is_valid(self, state, unit, target):#, ability_idx):
+        enough_action_points = unit.action_points_current >= 1
+        # ability_state = lax.switch(ability_idx,
+        #     [lambda _: unit.ability_state_1],
+        #     None
+        # )
+        # cooldown_ready = ability_state.current_cooldown == 0
+        return enough_action_points#jnp.logical_and(enough_action_points, cooldown_ready)
+
+    def _perform_action(self, key: chex.PRNGKey, state, unit, target, ability_idx=jnp.int32(-1)):
+        new_unit = unit.replace(
+            physical_damage_return=unit.strength_current,
+            action_points_current=unit.action_points_current - 1,
+            return_ability_count = unit.return_ability_count + 1,
+        )
+        
+        return lax.cond(
+            jnp.equal(state.player.unit_id, unit.unit_id),
+            lambda: state.replace(player=new_unit),
+            lambda: state.replace(enemy=new_unit)
+        )
+
+# Strength Regen - regen health based on your current strength (5x strength) cooldown 4, costs 1 action point
+register_action("StrengthRegenAction", lambda: [StrengthRegenAction()])
+
+class StrengthRegenAction(Action):
+    def __init__(self):
+        super().__init__()
+        self._ability_description = "Heal based on current strength"
+        self._base_cooldown = jnp.int32(4)
+        self._parameter_1 = jnp.float32(5)  # healing multiplier
+        
+    def is_valid(self, state, unit, target):#, ability_idx):
+        enough_action_points = unit.action_points_current >= 1
+        # ability_state = lax.switch(ability_idx,
+        #     [lambda _: unit.ability_state_1],
+        #     None
+        # )
+        # cooldown_ready = ability_state.current_cooldown == 0
+        return enough_action_points#jnp.logical_and(enough_action_points, cooldown_ready)
+
+    def _perform_action(self, key: chex.PRNGKey, state, unit, target, ability_idx=jnp.int32(-1)):
+        healing = unit.strength_current * self.parameter_1
+        new_health = jnp.minimum(unit.health_max, unit.health_current + healing)
+        
+        new_unit = unit.replace(
+            health_current=new_health,
+            action_points_current=unit.action_points_current - 1,
+            strength_regen_ability_count = unit.strength_regen_ability_count + 1,
+        )
+        
+        return lax.cond(
+            jnp.equal(state.player.unit_id, unit.unit_id),
+            lambda: state.replace(player=new_unit),
+            lambda: state.replace(enemy=new_unit)
+        )
+
+# Add barrier - add a barrier based on current resolve (5x resolve) cooldown 4, costs 1 action point
+register_action("AddBarrierAction", lambda: [AddBarrierAction()])
+
+class AddBarrierAction(Action):
+    def __init__(self):
+        super().__init__()
+        self._ability_description = "Add barrier based on current resolve"
+        self._base_cooldown = jnp.int32(4)
+        self._parameter_1 = jnp.float32(5)  # barrier multiplier
+        
+    def is_valid(self, state, unit, target):#, ability_idx):
+        enough_action_points = unit.action_points_current >= 1
+        # ability_state = lax.switch(ability_idx,
+        #     [lambda _: unit.ability_state_1],
+        #     None
+        # )
+        # cooldown_ready = ability_state.current_cooldown == 0
+        return enough_action_points#jnp.logical_and(enough_action_points, cooldown_ready)
+
+    def _perform_action(self, key: chex.PRNGKey, state, unit, target, ability_idx=jnp.int32(-1)):
+        barrier_amount = unit.resolve_current * self.parameter_1
+        new_barrier = jnp.minimum(unit.barrier_max, unit.barrier_current + barrier_amount)
+        
+        new_unit = unit.replace(
+            barrier_current=new_barrier,
+            action_points_current=unit.action_points_current - 1,
+            add_barrier_ability_count = unit.add_barrier_ability_count + 1,
+        )
+        
+        return lax.cond(
+            jnp.equal(state.player.unit_id, unit.unit_id),
+            lambda: state.replace(player=new_unit),
+            lambda: state.replace(enemy=new_unit)
+        )
+
+
 # Multi Attack
 # Frost Arrows
 # Strength Regen - regen health based on your strength

@@ -46,13 +46,15 @@ from render import render_game_state
 base_action_functions = []
 for create_fn in base_actions.base_action_registry.values():
     base_action_functions.extend(create_fn())
+base_action_fns = [action.execute for action in base_action_functions]
 
 ability_action_functions = []
 for create_fn in ability_actions.ability_registry.values():
     ability_action_functions.extend(create_fn())
+ability_action_fns = [action.execute for action in ability_action_functions]
 
 # Update num_actions
-num_actions = len(base_action_functions)
+num_base_actions = len(base_action_functions)
 num_abilities = len(ability_action_functions)
 
 checkpoint_dir = '/home/jvnheagerty/checkpoints'
@@ -94,7 +96,7 @@ class RL_Roguelike_JAX_MARL(MultiAgentEnv):
                 agents) == num_agents, f"Number of agents {len(agents)} does not match number of agents {num_agents}"
             self.agents = agents
 
-        self.num_moves = num_actions + 1  # Add 1 for the ability slot TODO: MAKE DYNAMIC
+        self.num_moves = num_base_actions + 1  # Add 1 for the ability slot TODO: MAKE DYNAMIC
 
         # TODO remove num_moves? no longer append available?
         if obs_size is None:
@@ -228,30 +230,16 @@ class RL_Roguelike_JAX_MARL(MultiAgentEnv):
         ability_idx = unit.ability_state_1.ability_index
 
         def do_base_action(key: chex.PRNGKey):
-            action_fns = [action.execute for action in base_action_functions]
-            return lax.switch(action, action_fns, key, state, unit, target, ability_idx)
+            return lax.switch(action, base_action_fns, key, state, unit, target, ability_idx)
             
         def do_ability_action(key: chex.PRNGKey):
-            # Create a function that handles ability execution for each possible ability index
-            def execute_ability(i, args):
-                key, state, unit, target, ability_idx = args
-                return ability_action_functions[i].execute(key, state, unit, target, ability_idx)
-        
-            ability_fns = [action.execute for action in ability_action_functions]
-            host_callback.id_print({
-            "ability_idx": ability_idx,
-            "key": key,
-            # "ability_fns": str(ability_fns),
-            # "unit": unit,
-            # "target": target
-            })
-
-            return lax.switch(ability_idx, ability_fns, key, state, unit, target, 0)
+            ability_slot = action - num_base_actions
+            return lax.switch(ability_idx, ability_action_fns, key, state, unit, target, ability_slot)
         
         key, key_ = jax.random.split(key)
         # If action index is less than num_base_actions, do base action, otherwise do ability
         new_state = lax.cond(
-            action < num_actions,
+            action < num_base_actions,
             lambda _: do_base_action(key_),
             lambda _: do_ability_action(key_),
             operand=None
