@@ -1,136 +1,244 @@
+# ability_actions.py
 import jax.numpy as jnp
 import chex
-from jax import lax, debug
-from utils import euclidean_distance, is_within_bounds, is_collision, do_invalid_move, do_damage, do_attack
+from jax import lax
+from utils import euclidean_distance, do_damage, do_attack
 from actions import Action
-from data_classes import AttackType, DamageType
+from data_classes import GameState, AttackType, DamageType
+from config import env_config
 
 # Create global registry
 ability_registry = {}
 
-def register_action(name, create_fn):
+def register_ability(name, create_fn):
+    """Register an ability creation function."""
     ability_registry[name] = create_fn
-
-# suicide:
-# Register suicide action
-register_action("SuicideAction", lambda: [SuicideAction()])
 
 class SuicideAction(Action):
     def __init__(self):
         super().__init__()
-        # Define all parameters as class variables during initialization
-        self._ability_description = "Deal damage based on strength to an enemy and take damage yourself"
+        self._ability_description = "Deal damage based on strength to target and self"
         self._base_cooldown = jnp.int32(3)
         self._parameter_1 = jnp.float32(8)  # range
         self._parameter_2 = jnp.float32(0)  # base_damage
         self._parameter_3 = jnp.float32(3)  # strength multiplier
-        
-    def is_valid(self, state, unit, target):
-        enough_action_points = unit.action_points_current >= 1
-        within_range = state.distance_to_enemy <= self.parameter_1
-        not_pick_mode = state.pick_mode == 0
-        return jnp.logical_and(jnp.logical_and(enough_action_points, within_range), not_pick_mode)
 
-    def _perform_action(self, key: chex.PRNGKey, state, unit, target, ability_idx=jnp.int32(-1)):
-        # Create position offsets as a static array
-        position_offsets = jnp.array([
-            [-1, -1], [-1, 0], [-1, 1],
-            [0, -1],           [0, 1],
-            [1, -1],  [1, 0],  [1, 1]
-        ])
+    def _is_valid_ability(
+        self,
+        state: GameState,
+        source_id: int,
+        target_id: int,
+        ability_slot: int,
+    ) -> chex.Array:
+        """Check if suicide ability can be used.
         
-        # Initialize best position
-        init_pos = position_offsets[0]
-        init_x = target.location_x + init_pos[0]
-        init_y = target.location_y + init_pos[1]
-        init_dist = euclidean_distance(unit.location_x, unit.location_y, init_x, init_y)
-        
-        def update_best_position(i, val):
-            offset = lax.dynamic_slice(position_offsets, (i, 0), (1, 2))[0]
-            x = target.location_x + offset[0]
-            y = target.location_y + offset[1]
-            dist = euclidean_distance(unit.location_x, unit.location_y, x, y)
+        Args:
+            state: Current game state
+            source_id: ID of unit attempting to use ability
+            target_id: ID of target unit
+            ability_slot: Index of ability being used
             
-            use_new = jnp.logical_and(
-                is_within_bounds(x, y),
-                dist < val[2]
-            )
-            return lax.cond(
-                use_new,
-                lambda _: (x, y, dist),
-                lambda _: val,
-                None
-            )
-        
-        new_x, new_y, _ = lax.fori_loop(1, 8, update_best_position, (init_x, init_y, init_dist))
-        
-        # Rest of the function remains the same...
-        damage_dealt = self.parameter_2 + (self.parameter_3 * unit.strength_current)
-        new_unit, new_target = do_damage(unit, target, damage_dealt, DamageType.PURE)
-        new_unit, _ = do_damage(unit, new_unit, self.parameter_2, DamageType.PURE)
-        
-        new_unit = new_unit.replace(
-            action_points_current=new_unit.action_points_current - 1,
-            location_x=jnp.int32(new_x),
-            location_y=jnp.int32(new_y),
-            suicide_ability_count = unit.suicide_ability_count + 1,
+        Returns:
+            Boolean indicating if ability can be used
+        """
+        # Get ability parameters from state
+        ability_params = state.units.abilities[source_id, ability_slot]
+        ability_range = ability_params[3]  # parameter_1 stores range
+
+        # Calculate distance between units 
+        dist = euclidean_distance(
+            state.units.location[source_id, 0],
+            state.units.location[source_id, 1],
+            state.units.location[target_id, 0],
+            state.units.location[target_id, 1]
         )
-        
-        new_distance = euclidean_distance(new_x, new_y, target.location_x, target.location_y)
-        
-        return lax.cond(
-            jnp.equal(state.player.unit_id, unit.unit_id),
-            lambda: state.replace(
-                player=new_unit, 
-                enemy=new_target,
-                distance_to_enemy=new_distance
-            ),
-            lambda: state.replace(
-                player=new_target, 
-                enemy=new_unit,
-                distance_to_enemy=new_distance
-            )
+
+        enough_ap = state.units.action_points[source_id, 1] >= 1
+        within_range = dist <= ability_range
+        not_pick_mode = state.pick_mode == 0
+
+        return jnp.logical_and(
+            jnp.logical_and(enough_ap, within_range),
+            not_pick_mode
         )
+
+    def _perform_action(
+        self,
+        key: chex.PRNGKey,
+        state: GameState,
+        source_id: int,
+        target_id: int,
+        ability_slot: int,
+    ) -> GameState:
+        """Execute suicide ability logic.
+        
+        Args:
+            key: PRNG key for randomization
+            state: Current game state
+            source_id: ID of unit using ability
+            target_id: ID of target unit
+            ability_slot: Index of ability being used
+            
+        Returns:
+            Updated game state after ability effects
+        """
+        # Get ability parameters
+        ability_params = state.units.abilities[source_id, ability_slot]
+        base_damage = ability_params[4]  # parameter_2
+        strength_mult = ability_params[5]  # parameter_3
+
+        # Calculate damage based on source unit's strength
+        damage = base_damage + (strength_mult * state.units.strength[source_id, 1])
+
+        # Apply damage to target using magical damage
+        new_state = do_damage(
+            state,
+            source_id,
+            target_id,
+            damage,
+            DamageType.MAGICAL,
+            return_damage=False
+        )
+
+        # Apply self-damage as magical damage
+        new_state = do_damage(
+            new_state,
+            source_id,
+            source_id,
+            base_damage,  # Self damage uses base value only
+            DamageType.MAGICAL,
+            return_damage=False
+        )
+
+        # Update action points and cooldown
+        new_action_points = new_state.units.action_points.at[source_id, 1].set(
+            new_state.units.action_points[source_id, 1] - 1
+        )
+
+        new_abilities = new_state.units.abilities.at[source_id, ability_slot, 2].set(
+            new_state.units.abilities[source_id, ability_slot, 1]  # Set current cd to base cd
+        )
+
+        # Increment usage counter
+        new_suicide_count = new_state.units.suicide_ability_count.at[source_id].add(1)
+
+        # Create updated units state
+        new_units = new_state.units.replace(
+            action_points=new_action_points,
+            abilities=new_abilities,
+            suicide_ability_count=new_suicide_count
+        )
+
+        # Return updated game state
+        return new_state.replace(units=new_units)
+
+# Register ability
+register_ability("SuicideAction", lambda: [SuicideAction()])
 
 # Steal Strength - reduce enemy strength and increase own strength
 # Register the new action
-register_action("StealStrengthAction", lambda: [StealStrengthAction()])
+register_ability("StealStrengthAction", lambda: [StealStrengthAction()])
 
 class StealStrengthAction(Action):
     def __init__(self):
         super().__init__()
-        self._ability_description = "Steal 2 strength from the target"
+        self._ability_description = "Steal strength from target unit"
         self._base_cooldown = jnp.int32(1)
         self._parameter_1 = jnp.float32(4)  # range
         self._parameter_2 = jnp.float32(2)  # strength_steal_amount
 
-    def is_valid(self, state, unit, target):
-        enough_action_points = unit.action_points_current >= 1
-        within_range = state.distance_to_enemy <= self.parameter_1
-        not_pick_mode = state.pick_mode == 0
-        return jnp.logical_and(jnp.logical_and(enough_action_points, within_range), not_pick_mode)
-
-    def _perform_action(self, key: chex.PRNGKey, state, unit, target, ability_idx=jnp.int32(-1)):
-        # Reduce target's strength
-        new_target = target.replace(
-            strength_current=jnp.maximum(0, target.strength_current - self.parameter_2)
+    def _is_valid_ability(
+        self, 
+        state: GameState, 
+        source_id: int, 
+        target_id: int,
+        ability_slot: int,
+    ) -> chex.Array:
+        """Check if strength steal ability can be used.
+        
+        Args:
+            state: Current game state
+            source_id: ID of unit attempting to use ability
+            target_id: ID of targeted unit
+            
+        Returns:
+            Boolean array indicating if ability can be used
+        """
+        # Extract ability parameters from source unit's ability data
+        ability_params = state.units.abilities[source_id, ability_slot]
+        ability_range = ability_params[3]  # parameter_1 stores range
+        
+        # Check action point cost
+        enough_ap = state.units.action_points[source_id, 1] >= 1
+        
+        # Calculate distance between source and target
+        dist = euclidean_distance(
+            state.units.location[source_id, 0],
+            state.units.location[source_id, 1],
+            state.units.location[target_id, 0], 
+            state.units.location[target_id, 1]
         )
         
-        # Increase caster's strength and reduce action points
-        new_unit = unit.replace(
-            strength_current=unit.strength_current + self.parameter_2,
-            action_points_current=unit.action_points_current - 1,
-            steal_strength_ability_count = unit.steal_strength_ability_count + 1,
+        # Validate range and game state
+        within_range = dist <= ability_range
+        not_pick_mode = state.pick_mode == 0
+        
+        # Combine all conditions
+        return jnp.logical_and(
+            jnp.logical_and(enough_ap, within_range),
+            not_pick_mode
         )
 
-        return lax.cond(
-            jnp.equal(state.player.unit_id, unit.unit_id),
-            lambda: state.replace(player=new_unit, enemy=new_target),
-            lambda: state.replace(player=new_target, enemy=new_unit)
+    def _perform_action(
+        self,
+        key: chex.PRNGKey,
+        state: GameState,
+        source_id: int,
+        target_id: int,
+        ability_slot: int,
+    ) -> GameState:
+        """Execute strength steal ability logic.
+        
+        Args:
+            key: PRNG key for any randomization
+            state: Current game state
+            source_id: ID of unit using the ability
+            target_id: ID of unit being targeted
+            ability_slot: Index of ability being used
+            
+        Returns:
+            Updated game state with modified strength values and ability cooldown
+        """
+        # Get ability parameters from source unit
+        ability_params = state.units.abilities[source_id, ability_slot]
+        steal_amount = ability_params[4]  # parameter_2 stores steal amount
+        
+        # Update strength values for both units
+        new_strength = state.units.strength.at[target_id, 1].set(
+            jnp.maximum(0, state.units.strength[target_id, 1] - steal_amount)
+        ).at[source_id, 1].set(
+            state.units.strength[source_id, 1] + steal_amount
+        )
+        
+        # Deduct action point cost
+        new_action_points = state.units.action_points.at[source_id, 1].set(
+            state.units.action_points[source_id, 1] - 1
+        )
+        
+        # Set ability on cooldown
+        new_abilities = state.units.abilities.at[source_id, ability_slot, 2].set(
+            state.units.abilities[source_id, ability_slot, 1]  # current_cd = base_cd
         )
 
-# Multi Attack - in one action do three ranged attacks, cooldwon 1, costs 1 action point
-register_action("MultiAttackAction", lambda: [MultiAttackAction()])
+        # Create updated unit state
+        new_units = state.units.replace(
+            strength=new_strength,
+            action_points=new_action_points,
+            abilities=new_abilities
+        )
+
+        # Return updated game state
+        return state.replace(units=new_units)
 
 class MultiAttackAction(Action):
     def __init__(self):
@@ -138,62 +246,154 @@ class MultiAttackAction(Action):
         self._ability_description = "Perform three ranged attacks in one action"
         self._base_cooldown = jnp.int32(1)
         self._parameter_1 = jnp.float32(8)  # range
-        
-    def is_valid(self, state, unit, target):#, ability_idx):
-        enough_action_points = unit.action_points_current >= 1
-        within_range = state.distance_to_enemy <= self.parameter_1
+
+    def _is_valid_ability(
+        self,
+        state: GameState,
+        source_id: int,
+        target_id: int,
+        ability_slot: int
+    ) -> chex.Array:
+        """Check if multi-attack ability can be used."""
+        # Get ability parameters
+        ability_params = state.units.abilities[source_id, ability_slot]
+        ability_range = ability_params[3]  # parameter_1 stores range
+
+        # Calculate distance between units
+        dist = euclidean_distance(
+            state.units.location[source_id, 0],
+            state.units.location[source_id, 1],
+            state.units.location[target_id, 0],
+            state.units.location[target_id, 1]
+        )
+
+        enough_ap = state.units.action_points[source_id, 1] >= 1
+        within_range = dist <= ability_range
         not_pick_mode = state.pick_mode == 0
-        return jnp.logical_and(jnp.logical_and(enough_action_points, within_range), not_pick_mode)
 
-    def _perform_action(self, key: chex.PRNGKey, state, unit, target, ability_idx=jnp.int32(-1)):
-        
-        # Perform three attacks in sequence
-        new_unit, new_target = do_attack(unit, target, AttackType.RANGED, DamageType.PHYSICAL)
-        new_unit, new_target = do_attack(new_unit, new_target, AttackType.RANGED, DamageType.PHYSICAL)
-        new_unit, new_target = do_attack(new_unit, new_target, AttackType.RANGED, DamageType.PHYSICAL)
-        
-        # Update action points
-        new_unit = new_unit.replace(
-            action_points_current=new_unit.action_points_current - 1,
-            multi_attack_ability_count = new_unit.multi_attack_ability_count + 1,
-        )
-        
-        return lax.cond(
-            jnp.equal(state.player.unit_id, unit.unit_id),
-            lambda: state.replace(player=new_unit, enemy=new_target),
-            lambda: state.replace(player=new_target, enemy=new_unit)
+        return jnp.logical_and(
+            jnp.logical_and(enough_ap, within_range),
+            not_pick_mode
         )
 
-# Return - user sets physical_damage_return to their current strength, cooldown 3, costs 1 action point
-register_action("ReturnAction", lambda: [ReturnAction()])
+    def _perform_action(
+        self,
+        key: chex.PRNGKey,
+        state: GameState,
+        source_id: int,
+        target_id: int,
+        ability_slot: int
+    ) -> GameState:
+        """Execute three ranged attacks in sequence."""
+        # Do three ranged attacks
+        new_state = do_attack(state, source_id, target_id, AttackType.RANGED, DamageType.PHYSICAL)
+        new_state = do_attack(new_state, source_id, target_id, AttackType.RANGED, DamageType.PHYSICAL)
+        new_state = do_attack(new_state, source_id, target_id, AttackType.RANGED, DamageType.PHYSICAL)
+
+        # Update action points and cooldown
+        new_action_points = new_state.units.action_points.at[source_id, 1].set(
+            new_state.units.action_points[source_id, 1] - 1
+        )
+
+        new_abilities = new_state.units.abilities.at[source_id, ability_slot, 2].set(
+            new_state.units.abilities[source_id, ability_slot, 1]  # Set current cd to base cd
+        )
+
+        # Increment usage counter
+        new_multi_attack_count = new_state.units.multi_attack_ability_count.at[source_id].add(1)
+
+        # Create updated units state
+        new_units = new_state.units.replace(
+            action_points=new_action_points,
+            abilities=new_abilities,
+            multi_attack_ability_count=new_multi_attack_count
+        )
+
+        # Return updated game state
+        return new_state.replace(units=new_units)
+
+# Register ability
+register_ability("MultiAttackAction", lambda: [MultiAttackAction()])
 
 class ReturnAction(Action):
     def __init__(self):
         super().__init__()
         self._ability_description = "Set physical damage return to current strength"
         self._base_cooldown = jnp.int32(10)
-        # self._parameter_1 = jnp.float32(1)  # duration multiplier
+        self._parameter_1 = jnp.float32(0)  # No range needed - self cast
+
+    def _is_valid_ability(
+        self,
+        state: GameState,
+        source_id: int,
+        target_id: int,
+        ability_slot: int,
+    ) -> chex.Array:
+        """Check if return ability can be used.
         
-    def is_valid(self, state, unit, target):#, ability_idx):
-        enough_action_points = unit.action_points_current >= 1
+        Args:
+            state: Current game state
+            source_id: ID of unit attempting to use ability
+            target_id: ID of targeted unit (ignored - self cast)
+            ability_slot: Index of ability being used
+            
+        Returns:
+            Boolean array indicating if ability can be used
+        """
+        enough_ap = state.units.action_points[source_id, 1] >= 1
         not_pick_mode = state.pick_mode == 0
-        return jnp.logical_and(enough_action_points, not_pick_mode)
+        return jnp.logical_and(enough_ap, not_pick_mode)
 
-    def _perform_action(self, key: chex.PRNGKey, state, unit, target, ability_idx=jnp.int32(-1)):
-        new_unit = unit.replace(
-            physical_damage_return=unit.strength_current,
-            action_points_current=unit.action_points_current - 1,
-            return_ability_count = unit.return_ability_count + 1,
-        )
+    def _perform_action(
+        self,
+        key: chex.PRNGKey,
+        state: GameState,
+        source_id: int,
+        target_id: int,
+        ability_slot: int,
+    ) -> GameState:
+        """Execute return ability logic.
         
-        return lax.cond(
-            jnp.equal(state.player.unit_id, unit.unit_id),
-            lambda: state.replace(player=new_unit),
-            lambda: state.replace(enemy=new_unit)
+        Args:
+            key: PRNG key for randomization
+            state: Current game state
+            source_id: ID of unit using ability
+            target_id: ID of target unit (ignored - self cast)
+            ability_slot: Index of ability being used
+            
+        Returns:
+            Updated game state with modified damage return and cooldown
+        """
+        # Set physical damage return to current strength
+        new_physical_defence = state.units.physical_defence.at[source_id, 4].set(
+            state.units.strength[source_id, 1]  # damage_return = current_strength
         )
 
-# Strength Regen - regen health based on your current strength (5x strength) cooldown 4, costs 1 action point
-register_action("StrengthRegenAction", lambda: [StrengthRegenAction()])
+        # Update action points and cooldown
+        new_action_points = state.units.action_points.at[source_id, 1].set(
+            state.units.action_points[source_id, 1] - 1
+        )
+
+        new_abilities = state.units.abilities.at[source_id, ability_slot, 2].set(
+            state.units.abilities[source_id, ability_slot, 1]  # Set current cd to base cd
+        )
+
+        # Increment usage counter
+        new_return_count = state.units.return_ability_count.at[source_id].add(1)
+
+        # Create updated units state
+        new_units = state.units.replace(
+            physical_defence=new_physical_defence,
+            action_points=new_action_points,
+            abilities=new_abilities,
+            return_ability_count=new_return_count
+        )
+
+        # Return updated game state
+        return state.replace(units=new_units)
+
+# Register ability
+register_ability("ReturnAction", lambda: [ReturnAction()])
 
 class StrengthRegenAction(Action):
     def __init__(self):
@@ -201,30 +401,89 @@ class StrengthRegenAction(Action):
         self._ability_description = "Heal based on current strength"
         self._base_cooldown = jnp.int32(10)
         self._parameter_1 = jnp.float32(5)  # healing multiplier
+
+    def _is_valid_ability(
+        self,
+        state: GameState,
+        source_id: int,
+        target_id: int,
+        ability_slot: int,
+    ) -> chex.Array:
+        """Check if strength regen ability can be used.
         
-    def is_valid(self, state, unit, target):#, ability_idx):
-        enough_action_points = unit.action_points_current >= 1
+        Args:
+            state: Current game state
+            source_id: ID of unit attempting to use ability
+            target_id: ID of targeted unit (ignored - self cast)
+            ability_slot: Index of ability being used
+            
+        Returns:
+            Boolean array indicating if ability can be used
+        """
+        enough_ap = state.units.action_points[source_id, 1] >= 1
         not_pick_mode = state.pick_mode == 0
-        return jnp.logical_and(enough_action_points, not_pick_mode)
+        return jnp.logical_and(enough_ap, not_pick_mode)
 
-    def _perform_action(self, key: chex.PRNGKey, state, unit, target, ability_idx=jnp.int32(-1)):
-        healing = unit.strength_current * self.parameter_1
-        new_health = jnp.minimum(unit.health_max, unit.health_current + healing)
+    def _perform_action(
+        self,
+        key: chex.PRNGKey,
+        state: GameState,
+        source_id: int,
+        target_id: int,
+        ability_slot: int,
+    ) -> GameState:
+        """Execute strength-based healing logic.
         
-        new_unit = unit.replace(
-            health_current=new_health,
-            action_points_current=unit.action_points_current - 1,
-            strength_regen_ability_count = unit.strength_regen_ability_count + 1,
-        )
+        Args:
+            key: PRNG key for randomization
+            state: Current game state
+            source_id: ID of unit using ability
+            target_id: ID of target unit (ignored - self cast)
+            ability_slot: Index of ability being used
+            
+        Returns:
+            Updated game state with modified health and cooldown
+        """
+        # Get ability parameters
+        ability_params = state.units.abilities[source_id, ability_slot]
+        healing_mult = ability_params[3]  # parameter_1 stores healing multiplier
         
-        return lax.cond(
-            jnp.equal(state.player.unit_id, unit.unit_id),
-            lambda: state.replace(player=new_unit),
-            lambda: state.replace(enemy=new_unit)
+        # Calculate healing based on current strength
+        healing = state.units.strength[source_id, 1] * healing_mult
+        
+        # Update health (capped at max health)
+        new_health = state.units.health.at[source_id, 0].set(
+            jnp.minimum(
+                state.units.health[source_id, 1],  # max health
+                state.units.health[source_id, 0] + healing  # current + healing
+            )
         )
 
-# Add barrier - add a barrier based on current resolve (5x resolve) cooldown 4, costs 1 action point
-register_action("AddBarrierAction", lambda: [AddBarrierAction()])
+        # Update action points and cooldown
+        new_action_points = state.units.action_points.at[source_id, 1].set(
+            state.units.action_points[source_id, 1] - 1
+        )
+
+        new_abilities = state.units.abilities.at[source_id, ability_slot, 2].set(
+            state.units.abilities[source_id, ability_slot, 1]  # Set current cd to base cd
+        )
+
+        # Increment usage counter
+        new_strength_regen_count = state.units.strength_regen_ability_count.at[source_id].add(1)
+
+        # Create updated units state
+        new_units = state.units.replace(
+            health=new_health,
+            action_points=new_action_points,
+            abilities=new_abilities,
+            strength_regen_ability_count=new_strength_regen_count
+        )
+
+        # Return updated game state
+        return state.replace(units=new_units)
+
+# Register ability
+register_ability("StrengthRegenAction", lambda: [StrengthRegenAction()])
 
 class AddBarrierAction(Action):
     def __init__(self):
@@ -232,27 +491,89 @@ class AddBarrierAction(Action):
         self._ability_description = "Add barrier based on current resolve"
         self._base_cooldown = jnp.int32(20)
         self._parameter_1 = jnp.float32(5)  # barrier multiplier
-        
-    def is_valid(self, state, unit, target):#, ability_idx):
-        enough_action_points = unit.action_points_current >= 1
-        not_pick_mode = state.pick_mode == 0
-        return jnp.logical_and(enough_action_points, not_pick_mode)
 
-    def _perform_action(self, key: chex.PRNGKey, state, unit, target, ability_idx=jnp.int32(-1)):
-        barrier_amount = unit.resolve_current * self.parameter_1
-        new_barrier = jnp.minimum(unit.barrier_max, unit.barrier_current + barrier_amount)
+    def _is_valid_ability(
+        self,
+        state: GameState,
+        source_id: int,
+        target_id: int,
+        ability_slot: int,
+    ) -> chex.Array:
+        """Check if barrier ability can be used.
         
-        new_unit = unit.replace(
-            barrier_current=new_barrier,
-            action_points_current=unit.action_points_current - 1,
-            add_barrier_ability_count = unit.add_barrier_ability_count + 1,
-        )
+        Args:
+            state: Current game state
+            source_id: ID of unit attempting to use ability
+            target_id: ID of targeted unit (ignored - self cast)
+            ability_slot: Index of ability being used
+            
+        Returns:
+            Boolean array indicating if ability can be used
+        """
+        enough_ap = state.units.action_points[source_id, 1] >= 1
+        not_pick_mode = state.pick_mode == 0
+        return jnp.logical_and(enough_ap, not_pick_mode)
+
+    def _perform_action(
+        self,
+        key: chex.PRNGKey,
+        state: GameState,
+        source_id: int,
+        target_id: int,
+        ability_slot: int
+    ) -> GameState:
+        """Execute barrier adding logic.
         
-        return lax.cond(
-            jnp.equal(state.player.unit_id, unit.unit_id),
-            lambda: state.replace(player=new_unit),
-            lambda: state.replace(enemy=new_unit)
+        Args:
+            key: PRNG key for randomization
+            state: Current game state
+            source_id: ID of unit using ability
+            target_id: ID of target unit (ignored - self cast)
+            ability_slot: Index of ability being used
+            
+        Returns:
+            Updated game state with modified barrier and cooldown
+        """
+        # Get ability parameters
+        ability_params = state.units.abilities[source_id, ability_slot]
+        barrier_mult = ability_params[3]  # parameter_1 stores barrier multiplier
+
+        # Calculate barrier amount based on resolve
+        barrier_amount = state.units.resolve[source_id, 1] * barrier_mult
+
+        # Update barrier (capped at max barrier)
+        new_barrier = state.units.barrier.at[source_id, 0].set(
+            jnp.minimum(
+                state.units.barrier[source_id, 1],  # max barrier
+                state.units.barrier[source_id, 0] + barrier_amount  # current + new
+            )
         )
+
+        # Update action points and cooldown
+        new_action_points = state.units.action_points.at[source_id, 1].set(
+            state.units.action_points[source_id, 1] - 1
+        )
+
+        new_abilities = state.units.abilities.at[source_id, ability_slot, 2].set(
+            state.units.abilities[source_id, ability_slot, 1]  # Set current cd to base cd
+        )
+
+        # Increment usage counter
+        new_add_barrier_count = state.units.add_barrier_ability_count.at[source_id].add(1)
+
+        # Create updated units state
+        new_units = state.units.replace(
+            barrier=new_barrier,
+            action_points=new_action_points,
+            abilities=new_abilities,
+            add_barrier_ability_count=new_add_barrier_count
+        )
+
+        # Return updated game state
+        return state.replace(units=new_units)
+
+# Register ability
+register_ability("AddBarrierAction", lambda: [AddBarrierAction()])
 
 
 # Multi Attack

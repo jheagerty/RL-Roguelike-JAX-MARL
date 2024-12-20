@@ -1,25 +1,3 @@
-## TODO
-# add end condition, no rewards in x steps?
-
-## add skills
-# basic skill actions
-# modifiers
-# more more more
-## add skill picking
-# picking round
-## update ActorCritic
-# LSTM
-# action set
-# dynamic skill features
-## update training
-# opponent policy updates
-# opponent policy buffer
-# wandb logging
-# logging and performance / loss analysis
-# 
-
-## refactor
-
 # environment_MARL.py
 import numpy as np
 import jax
@@ -39,7 +17,7 @@ from utils import euclidean_distance, generate_unique_pairs, get_latest_checkpoi
 import base_actions
 from reward import reward_function
 from config import train_config, env_config
-# from data_classes import UnitState, EnvState, EnvParams
+# from data_classes import UnitsState, EnvState, EnvParams
 from render import render_game_state
 
 # Dynamic import of action functions
@@ -59,11 +37,8 @@ num_abilities = len(ability_action_functions)
 
 checkpoint_dir = '/home/jvnheagerty/checkpoints'
 
-schema_classes = data_classes.create_struct_dataclass(data_classes.schema)
-AbilityState = schema_classes['AbilityState']
-AbilityStatusState = schema_classes['AbilityStatusState']
-UnitState = schema_classes['UnitState']
-GameState = schema_classes['GameState']
+UnitsState = data_classes.UnitsState
+GameState = data_classes.GameState
 
 low, high = data_classes.get_observation_bounds(data_classes.schema)
 
@@ -108,111 +83,108 @@ class RL_Roguelike_JAX_MARL(MultiAgentEnv):
         if observation_spaces is None:
             self.observation_spaces = {i: Box(low, high, (len(low),), jnp.float32) for i in self.agents}#(18+num_actions,), jnp.float32) for i in self.agents}
 
-    def get_legal_moves(self, state: GameState) -> chex.Array:
-        """Get all agents' legal moves"""
-
+    @partial(jax.jit, static_argnums=[0])
+    def get_legal_moves(self, state: GameState) -> Dict:
+        """Get all agents' legal moves.
+        
+        Args:
+            state: Current game state
+            
+        Returns:
+            Dictionary mapping agent IDs to their legal moves
+        """
         @partial(jax.vmap, in_axes=[0, None])
         def _legal_moves(aidx: int, state: GameState) -> chex.Array:
-            return jax.lax.cond(
+            """Get legal moves for a specific agent."""
+            # Determine source unit index based on current player TODO rework when multiple units per team and have play order
+            source_idx = jnp.where(
                 aidx == 0,
-                lambda _: self.get_available_actions(state.player, state.enemy, state),
-                lambda _: self.get_available_actions(state.enemy, state.player, state),
-                operand=None
-                )
+                0,  # First team unit
+                env_config['HEROES_PER_TEAM']  # Second team unit
+            )
+            # Return available actions for that unit
+            return state.units.available_actions[source_idx]
 
         legal_moves = _legal_moves(self.agent_range, state)
-
         return {a: legal_moves[i] for i, a in enumerate(self.agents)}
 
     @partial(jax.jit, static_argnums=[0])
     def reset(self, key: chex.PRNGKey) -> Tuple[Dict, GameState]:
-        """Reset the environment."""
+        """Reset the environment.
+        
+        Args:
+            key: PRNG key for randomization
+        
+        Returns:
+            Tuple containing:
+            - Dict of initial observations for each agent
+            - Initial GameState
+        """
         key, key_pos, key_abilities = jax.random.split(key, 3)
         
         # Generate positions
         x1, y1, x2, y2 = generate_unique_pairs(key_pos)
         initial_distance = jnp.float32(euclidean_distance(x1, y1, x2, y2))
 
-        ability_idx1, ability_idx2, pick_pool_0, pick_pool_1, pick_pool_2 = jax.random.choice(key, num_abilities, shape=(5,), replace=False)
-        # pick_pool = tuple(pick_pool)
-
-        # Get ability parameters using vmap
-        def get_ability_params(idx):
-            return jax.lax.dynamic_slice(self.ability_params, (idx, 0), (1, 4))[0]
-
-        player_params = get_ability_params(ability_idx1)
-        enemy_params = get_ability_params(ability_idx2)
-        pool_ability_1_params = get_ability_params(pick_pool_0)
-        pool_ability_2_params = get_ability_params(pick_pool_1)
-        pool_ability_3_params = get_ability_params(pick_pool_2)
-
-        # Create ability states
-        player_ability = AbilityState(
-            ability_index=jnp.int32(ability_idx1),
-            base_cooldown=jnp.int32(player_params[0]),
-            current_cooldown=jnp.int32(0),
-            parameter_1=jnp.float32(player_params[1]),
-            parameter_2=jnp.float32(player_params[2]),
-            parameter_3=jnp.float32(player_params[3])
-        )
-        
-        enemy_ability = AbilityState(
-            ability_index=jnp.int32(ability_idx2),
-            base_cooldown=jnp.int32(enemy_params[0]),
-            current_cooldown=jnp.int32(0),
-            parameter_1=jnp.float32(enemy_params[1]),
-            parameter_2=jnp.float32(enemy_params[2]),
-            parameter_3=jnp.float32(enemy_params[3])
-        )
-        
-        pool_ability_1 = AbilityState(
-            ability_index=jnp.int32(pick_pool_0),
-            base_cooldown=jnp.int32(pool_ability_1_params[0]),
-            current_cooldown=jnp.int32(0),
-            parameter_1=jnp.float32(pool_ability_1_params[1]),
-            parameter_2=jnp.float32(pool_ability_1_params[2]),
-            parameter_3=jnp.float32(pool_ability_1_params[3])
-        )
-        
-        pool_ability_2 = AbilityState(
-            ability_index=jnp.int32(pick_pool_1),
-            base_cooldown=jnp.int32(pool_ability_2_params[0]),
-            current_cooldown=jnp.int32(0),
-            parameter_1=jnp.float32(pool_ability_2_params[1]),
-            parameter_2=jnp.float32(pool_ability_2_params[2]),
-            parameter_3=jnp.float32(pool_ability_2_params[3])
-        )
-        
-        pool_ability_3 = AbilityState(
-            ability_index=jnp.int32(pick_pool_2),
-            base_cooldown=jnp.int32(pool_ability_3_params[0]),
-            current_cooldown=jnp.int32(0),
-            parameter_1=jnp.float32(pool_ability_3_params[1]),
-            parameter_2=jnp.float32(pool_ability_3_params[2]),
-            parameter_3=jnp.float32(pool_ability_3_params[3])
+        # Sample ability indices for units and pool
+        ability_idx1, ability_idx2, *pool_indices = jax.random.choice(
+            key_abilities, num_abilities, shape=(2 + env_config['ABILITY_POOL_SIZE'],), replace=False
         )
 
-        # Create states
-        player = data_classes.create_unit_state(
-            UnitState,
-            {'unit_id': jnp.int32(1),
-             'location_x': x1,
-             'location_y': y1,
-             'ability_state_1': player_ability
-            })
+        # Create abilities array initialization helper
+        def create_initial_abilities(ability_indices: chex.Array, ability_params: chex.Array) -> chex.Array:
+            """Creates initial abilities array with empty slots filled with defaults."""
+            # Create empty ability array filled with defaults
+            abilities = jnp.tile(
+                jnp.array([-1, 0, 0, 0, 0, 0], dtype=jnp.float32),
+                (env_config['HEROES_PER_TEAM'] * 2, env_config['ABILITIES_PER_HERO'], 1)
+            )
+            
+            # Helper to get full ability parameters
+            def get_full_params(idx):
+                params = jax.lax.dynamic_slice(ability_params, (idx, 0), (1, 4))[0]
+                return jnp.array([idx, params[0], 0, *params[1:]], dtype=jnp.float32)
+            
+            # Update first ability slot for each unit
+            return abilities.at[:, 0].set(
+                jax.vmap(get_full_params)(ability_indices)
+            )
 
-        enemy = data_classes.create_unit_state(
-            UnitState,
-            {'unit_id': jnp.int32(-1),
-             'location_x': x2,
-             'location_y': y2,
-             'ability_state_1': enemy_ability
-            })
+        # Create initial abilities for units
+        abilities = create_initial_abilities(
+            jnp.array([ability_idx1, ability_idx2]), 
+            self.ability_params
+        )
 
-        # Create initial state without available actions
+        # Create ability pool array
+        def create_ability_pool(pool_indices: chex.Array, ability_params: chex.Array) -> chex.Array:
+            """Creates ability pool array from indices."""
+            def get_pool_ability(idx):
+                params = jax.lax.dynamic_slice(ability_params, (idx, 0), (1, 4))[0]
+                return jnp.array([idx, params[0], 0, *params[1:]], dtype=jnp.float32)
+                
+            return jax.vmap(get_pool_ability)(pool_indices)
+
+        ability_pool = create_ability_pool(
+            jnp.array(pool_indices), 
+            self.ability_params
+        )
+
+        units = data_classes.create_unit_state(
+            UnitsState,
+            {
+                'location': jnp.array([
+                    [x1, y1],
+                    [x2, y2]
+                ], dtype=jnp.int32),
+                'unit_id': jnp.arange(env_config['HEROES_PER_TEAM'] * 2, dtype=jnp.int32),
+                'abilities': abilities
+            }
+        )
+
+        # Create initial game state
         state = GameState(
-            player=player,
-            enemy=enemy,
+            units=units,
             distance_to_enemy=initial_distance,
             steps=jnp.int32(0),
             turn_count=jnp.int32(0),
@@ -220,23 +192,18 @@ class RL_Roguelike_JAX_MARL(MultiAgentEnv):
             initial_distance=initial_distance,
             cur_player_idx=jnp.zeros(self.num_agents).at[0].set(1),
             terminal=False,
-            pool_ability_1=pool_ability_1,
-            pool_ability_2=pool_ability_2,
-            pool_ability_3=pool_ability_3,
-            pick_mode=1,
-            pool_ability_1_picked=jnp.int32(0),
-            pool_ability_2_picked=jnp.int32(0),
-            pool_ability_3_picked=jnp.int32(0),
-            pick_count=jnp.int32(0),
+            # New ability pool handling
+            ability_pool=ability_pool,
+            ability_pool_picked=jnp.zeros(env_config['ABILITY_POOL_SIZE'], dtype=jnp.int32),
+            pick_mode=jnp.int32(1),
+            pick_count=jnp.int32(0)
         )
 
-        # Update available actions using lax.switch based validation
-        available_actions_player = self.get_available_actions(state.player, state.enemy, state)
-        available_actions_enemy = self.get_available_actions(state.enemy, state.player, state)
-        
+        # Update available actions for all units
         state = state.replace(
-            player=player.replace(available_actions=available_actions_player),
-            enemy=enemy.replace(available_actions=available_actions_enemy)
+            units=state.units.replace(
+                available_actions=self.get_available_actions(state)
+            )
         )
 
         return self.get_obs(state), state
@@ -252,18 +219,42 @@ class RL_Roguelike_JAX_MARL(MultiAgentEnv):
         obs = _observation(self.agent_range, state)
         return {a: obs[i] for i, a in enumerate(self.agents)}
     
-    def function_mapper(self, key: chex.PRNGKey, state: GameState, action: int, unit, target):
-        """Handle both ability slots"""
-        def do_base_action(key: chex.PRNGKey):
-            return lax.switch(action, base_action_fns, key, state, unit, target, jnp.int32(-1))
+    def function_mapper(self, key: chex.PRNGKey, state: GameState, action: int, source_idx: int, target_idx: int) -> GameState:
+        """Maps action indices to their corresponding functions.
+        
+        Args:
+            key: PRNG key for randomization
+            state: Current game state
+            action: Action index to execute
+            source_idx: Index of unit performing action
+            target_idx: Index of target unit
             
-        def do_ability_1_action(key: chex.PRNGKey):
-            return lax.switch(unit.ability_state_1.ability_index, 
-                            ability_action_fns, key, state, unit, target, jnp.int32(0))
-                            
-        def do_ability_2_action(key: chex.PRNGKey):
-            return lax.switch(unit.ability_state_2.ability_index, 
-                            ability_action_fns, key, state, unit, target, jnp.int32(1))
+        Returns:
+            Updated game state
+        """
+        def do_base_action(key: chex.PRNGKey) -> GameState:
+            """Execute a base action."""
+            return lax.switch(
+                action, 
+                base_action_fns, 
+                key, state, source_idx, target_idx, jnp.int32(-1)
+            )
+                
+        def do_ability_action(key: chex.PRNGKey, slot_idx: int) -> GameState:
+            """Execute an ability from the given slot."""
+            # Get ability index from unit's abilities array
+            ability_idx = jnp.int32(state.units.abilities[source_idx, slot_idx, 0])
+            
+            return lax.cond(
+                ability_idx >= 0,
+                lambda _: lax.switch(
+                    ability_idx,
+                    ability_action_fns, 
+                    key, state, source_idx, target_idx, slot_idx
+                ),
+                lambda _: state,  # Return unchanged state if no ability in slot
+                operand=None
+            )
         
         key, key_ = jax.random.split(key)
         
@@ -272,92 +263,165 @@ class RL_Roguelike_JAX_MARL(MultiAgentEnv):
             lambda _: do_base_action(key_),
             lambda _: lax.cond(
                 action == num_base_actions,
-                lambda _: do_ability_1_action(key_),
-                lambda _: do_ability_2_action(key_),
+                lambda _: do_ability_action(key_, jnp.int32(0)),  # First ability slot
+                lambda _: do_ability_action(key_, jnp.int32(1)),  # Second ability slot
                 operand=None
             ),
             operand=None
         )
+
+    def get_available_actions(self, state: GameState) -> chex.Array:
+        """Get available actions for all units.
+        
+        Args:
+            state: Current game state
+        
+        Returns:
+            Array of shape (HEROES_PER_TEAM * 2, num_actions) containing valid actions
+        """
+        def get_unit_actions(unit_idx: int) -> chex.Array:
+            """Get available actions for a specific unit."""
+            def check_base_action_validity(action_idx: int) -> chex.Array:
+                """Check if a base action is valid for any target."""
+                def check_target(target_idx: int) -> chex.Array:
+                    is_self = target_idx == unit_idx
+                    # Pass -1 as ability_slot for base actions
+                    is_valid = base_action_functions[action_idx].is_valid(
+                        state, unit_idx, target_idx, jnp.int32(-1)
+                    )
+                    return jnp.where(is_self, False, is_valid)
+                
+                target_validities = jax.vmap(check_target)(
+                    jnp.arange(env_config['HEROES_PER_TEAM'] * 2)
+                )
+                return jnp.any(target_validities)
+            
+            def check_ability_validity(ability_idx: int, slot_idx: int) -> chex.Array:
+                """Check if an ability is valid for any target."""
+                def check_target(target_idx: int) -> chex.Array:
+                    is_self = target_idx == unit_idx
+                    is_valid = lax.cond(
+                        ability_idx >= 0,
+                        lambda _: lax.switch(
+                            ability_idx,
+                            [lambda: ability_action_functions[i].is_valid(
+                                state, unit_idx, target_idx, slot_idx
+                            ) for i in range(len(ability_action_functions))]
+                        ),
+                        lambda _: jnp.array(False),
+                        operand=None
+                    )
+                    return jnp.where(is_self, False, is_valid)
+                
+                target_validities = jax.vmap(check_target)(
+                    jnp.arange(env_config['HEROES_PER_TEAM'] * 2)
+                )
+                return jnp.any(target_validities)
+
+            # Check base actions
+            base_actions = jnp.array([
+                check_base_action_validity(i) for i in range(len(base_action_functions))
+            ], dtype=jnp.int32)
+            
+            # Get current unit's abilities
+            unit_abilities = state.units.abilities[unit_idx]
+            ability_1_idx = jnp.int32(unit_abilities[0, 0])  # First ability index
+            ability_2_idx = jnp.int32(unit_abilities[1, 0])  # Second ability index
+            
+            # Check ability validities with their respective slots
+            ability_1_valid = check_ability_validity(ability_1_idx, jnp.int32(0))
+            ability_2_valid = check_ability_validity(ability_2_idx, jnp.int32(1))
+            
+            return jnp.concatenate([
+                base_actions,
+                jnp.array([ability_1_valid, ability_2_valid], dtype=jnp.int32)
+            ])
+
+        # Vectorize across all units
+        return jax.vmap(get_unit_actions)(jnp.arange(env_config['HEROES_PER_TEAM'] * 2))
+
+    @partial(jax.jit, static_argnums=[0])
+    def step_env(
+        self,
+        key: chex.PRNGKey,
+        state: GameState,
+        actions: Dict
+    ) -> Tuple[Dict, GameState, Dict, Dict, Dict]:
+        """Steps the environment forward by one timestep.
+        
+        Args:
+            key: PRNG key for randomization
+            state: Current game state
+            actions: Dictionary mapping agent IDs to their chosen actions
+            
+        Returns:
+            Tuple containing:
+            - Dict of observations for each agent
+            - Updated game state
+            - Dict of rewards for each agent
+            - Dict of done flags
+            - Dict of debug info
+        """
+        # Convert actions dict to array
+        actions = jnp.array([actions[i] for i in self.agents])
+        
+        # Get current player's index and action
+        aidx = jnp.nonzero(state.cur_player_idx, size=1)[0][0]
+        action = actions.at[aidx].get()[0]
+        
+        # Store old state for reward calculation
+        old_state = state
+        
+        # Determine source unit index based on current player
+        source_idx = jnp.where(
+            aidx == 0,
+            0,  # First team unit
+            env_config['HEROES_PER_TEAM']  # Second team unit
+        )
+        
+        # Perform action using function mapper
+        key, key_ = jax.random.split(key)
+        new_state = self.function_mapper(
+            key_,
+            state,
+            action,
+            source_idx,
+            0  # Default target (will be handled by individual actions)
+        )
         
         # Update available actions
         new_state = new_state.replace(
-            player=new_state.player.replace(
-                available_actions=self.get_available_actions(new_state.player, new_state.enemy, new_state)
-            ),
-            enemy=new_state.enemy.replace(
-                available_actions=self.get_available_actions(new_state.enemy, new_state.player, new_state)
+            units=new_state.units.replace(
+                available_actions=self.get_available_actions(new_state)
             )
         )
         
-        return new_state
-
-    def get_available_actions(self, unit, target, state: GameState) -> chex.Array:
-        base_actions_available = jnp.array(
-            [action.is_valid(state, unit, target) for action in base_action_functions], 
-            dtype=jnp.int32
-        )
-        
-        def validate_ability(ability_idx, ability_slot, state, unit, target):
-            def ability_case(i):
-                return ability_action_functions[i].is_valid(state, unit, target)
-                
-            return lax.switch(ability_idx, 
-                            [lambda: ability_case(i) for i in range(len(ability_action_functions))])
-        
-        ability_1_available = validate_ability(unit.ability_state_1.ability_index, 0, state, unit, target)
-        ability_2_available = validate_ability(unit.ability_state_2.ability_index, 1, state, unit, target)
-        
-        return jnp.concatenate([
-            base_actions_available,
-            jnp.array([ability_1_available, ability_2_available], dtype=jnp.int32)
-        ])
-
-    @partial(jax.jit, static_argnums=[0])
-    def step_env(self, key: chex.PRNGKey, state: GameState, actions: Dict,
-                 ) -> Tuple[chex.Array, GameState, Dict, Dict, Dict]:
-        """
-        Step the environment
-        Executes one turn
-        """
-        # get actions as array
-        actions = jnp.array([actions[i] for i in self.agents])
-        aidx = jnp.nonzero(state.cur_player_idx, size=1)[0][0]
-        action = actions.at[aidx].get()
-        action = action[0]# - 1 # ignore noop for acting agent
-
-        old_state = state
-
-        # perform player action and resolve the new state
-        key, key_ = jax.random.split(key)
-        new_state = lax.cond(
-                jnp.equal(aidx, 0),
-                lambda _: self.function_mapper(key_, old_state, action, old_state.player, old_state.enemy),
-                lambda _: self.function_mapper(key_, old_state, action, old_state.enemy, old_state.player),
-                operand = None
-                )
-
+        # Calculate rewards
         player_reward, enemy_reward = reward_function(old_state, new_state, action)
-
-        # check enemy dead
-        enemy_dead = state.enemy.health_current <= 0
-        # check player dead
-        player_dead = state.player.health_current <= 0
-        # Check number of steps in episode termination condition
-        done_steps = state.steps >= env_config['MAX_STEPS']
-
-        done = jnp.logical_or(jnp.logical_or(enemy_dead, player_dead), done_steps)
-
-        new_state = new_state.replace(terminal = done)
+        
+        # Check termination conditions
+        team_1_health = jnp.sum(new_state.units.health[:env_config['HEROES_PER_TEAM'], 0])
+        team_2_health = jnp.sum(new_state.units.health[env_config['HEROES_PER_TEAM']:, 0])
+        
+        any_team_dead = jnp.logical_or(team_1_health <= 0, team_2_health <= 0)
+        steps_exceeded = new_state.steps >= env_config['MAX_STEPS']
+        done = jnp.logical_or(any_team_dead, steps_exceeded)
+        
+        # Update terminal state
+        new_state = new_state.replace(terminal=done)
+        
+        # Package return values
         dones = {agent: done for agent in self.agents}
         dones["__all__"] = done
-
-        rewards = {self.agents[0]: player_reward,
-                   self.agents[1]: enemy_reward,
-                   }
-        rewards["__all__"] = 0 # TODO do we need this?? what does it do??
-
+        
+        rewards = {
+            self.agents[0]: player_reward,
+            self.agents[1]: enemy_reward,
+        }
+        rewards["__all__"] = 0
+        
         info = {}
-
+        
         return (
             lax.stop_gradient(self.get_obs(new_state)),
             lax.stop_gradient(new_state),

@@ -4,7 +4,7 @@ import chex
 from config import env_config
 import jax
 import jax.numpy as jnp
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Tuple, Callable
 from enum import Enum, auto
 
 class AttackType(Enum):
@@ -19,1053 +19,370 @@ class DamageType(Enum):
 float_max = jnp.finfo(jnp.float32).max
 
 schema = { # TODO: make function ? so ability index can be dynamic
-  "AbilityState": {
-    "ability_index": {
-      "type": int,
-      "default": jnp.int32(-1),
-      "obs": True,
-      "low": -1,
-      "high": 100
-    },
-    "base_cooldown": {
-      "type": int,
-      "default": jnp.int32(0),
-      "obs": True,
-      "low": 0,
-      "high": 100
-    },
-    "current_cooldown": {
-      "type": int,
-      "default": jnp.int32(0),
-      "obs": True,
-      "low": 0,
-      "high": 100
-    },
-    "parameter_1": {
-      "type": int,
-      "default": jnp.int32(0),
-      "obs": True,
-      "low": -1000,
-      "high": -1000
-    },
-    "parameter_2": {
-      "type": int,
-      "default": jnp.int32(0),
-      "obs": True,
-      "low": -1000,
-      "high": 1000
-    },
-    "parameter_3": {
-      "type": int,
-      "default": jnp.int32(0),
-      "obs": True,
-      "low": -1000,
-      "high": 1000
-    }
-  },
-  "AbilityStatusState": {
-    "ability_index": {
-      "type": int,
-      "default": jnp.int32(-1),
-      "obs": True,
-      "low": -1,
-      "high": 100
-    },
-    "source_player_idx": {
-      "type": chex.Array,
-      "default": jnp.zeros(2),
-      "obs": True, #TODO this might take a bit of work
-      "low": jnp.zeros(2),
-      "high": jnp.ones(2)
-    },
-    "duration": {
-      "type": int,
-      "default": jnp.int32(0),
-      "obs": True,
-      "low": 0,
-      "high": 100
-    },
-    "parameter_1": {
-      "type": int,
-      "default": jnp.int32(0),
-      "obs": True,
-      "low": -1000,
-      "high": -1000
-    },
-    "parameter_2": {
-      "type": int,
-      "default": jnp.int32(0),
-      "obs": True,
-      "low": -1000,
-      "high": 1000
-    }
-  },
-  "UnitState": {
+  "UnitsState": {
     "unit_id": {
-        "type": int,
-        "default": jnp.int32(0),
+        "type": jnp.ndarray,
+        "default": jnp.arange(env_config['HEROES_PER_TEAM'] * 2, dtype=jnp.int32),
         "obs": False
     },
-    "location_x": {
-      "type": int,
-      "default": jnp.int32(0),
+    "location": {
+      "type": jnp.ndarray,
+      "default": jnp.zeros((env_config['HEROES_PER_TEAM'] * 2, 2), dtype=jnp.int32), # (HEROES_PER_TEAM * 2) by (x, y)
       "obs": True,
-      "low": 0,
-      "high": 20,
+      "low": jnp.zeros((env_config['HEROES_PER_TEAM'] * 2, 2), dtype=jnp.int32),
+      "high": jnp.full((env_config['HEROES_PER_TEAM'] * 2, 2), 20, dtype=jnp.int32),
     },
-    "location_y": {
-      "type": int,
-      "default": jnp.int32(0),
+    "action_points": {
+      "type": jnp.ndarray,
+      "default": jnp.tile(
+          jnp.array([5., 5., 5.], dtype=jnp.float32), 
+          (env_config['HEROES_PER_TEAM'] * 2, 1)
+          ), # (HEROES_PER_TEAM * 2) by (base, current, max)
       "obs": True,
-      "low": 0,
-      "high": 20,
+      "low": jnp.zeros((env_config['HEROES_PER_TEAM'] * 2, 3), dtype=jnp.float32),
+      "high": jnp.full((env_config['HEROES_PER_TEAM'] * 2, 3), 20, dtype=jnp.float32),
     },
-    "action_points_base": {
-      "type": float,
-      "default": jnp.float32(5),
+    "movement_points": {
+      "type": jnp.ndarray,
+      "default": jnp.tile(
+          jnp.array([10., 10., 10., 1., 1.], dtype=jnp.float32), 
+          (env_config['HEROES_PER_TEAM'] * 2, 1)
+          ), # (HEROES_PER_TEAM * 2) by (base, current, max, percentage, multiplier)
       "obs": True,
-      "low": 0,
-      "high": 20,
+      "low": jnp.zeros((env_config['HEROES_PER_TEAM'] * 2, 5), dtype=jnp.float32),
+      "high": jnp.full((env_config['HEROES_PER_TEAM'] * 2, 5), 50, dtype=jnp.float32),
     },
-    "action_points_current": {
-      "type": float,
-      "default": jnp.float32(5),
+    "health": {
+      "type": jnp.ndarray,
+      "default": jnp.tile(
+          jnp.array([100., 100., 1., 0., 0.], dtype=jnp.float32), 
+          (env_config['HEROES_PER_TEAM'] * 2, 1)
+          ), # (HEROES_PER_TEAM * 2) by (current, max, percentage, regeneration, regeneration_rate)
       "obs": True,
-      "low": 0,
-      "high": 20,
+      "low": jnp.zeros((env_config['HEROES_PER_TEAM'] * 2, 5), dtype=jnp.float32), # TODO fix to tile, regen can be negative, rate between -1 and 1
+      "high": jnp.full((env_config['HEROES_PER_TEAM'] * 2, 5), 1000, dtype=jnp.float32), # TODO fix to tile, rate between -1 and 1
     },
-    "action_points_max": {
-      "type": float,
-      "default": jnp.float32(5),
+    "mana": {
+      "type": jnp.ndarray,
+      "default": jnp.tile(
+          jnp.array([100., 100., 1., 0., 0.], dtype=jnp.float32), 
+          (env_config['HEROES_PER_TEAM'] * 2, 1)
+          ), # (HEROES_PER_TEAM * 2) by (current, max, percentage, regeneration, regeneration_rate)
       "obs": True,
-      "low": 0,
-      "high": 20,
+      "low": jnp.zeros((env_config['HEROES_PER_TEAM'] * 2, 5), dtype=jnp.float32), # TODO fix to tile, regen can be negative, rate between -1 and 1
+      "high": jnp.full((env_config['HEROES_PER_TEAM'] * 2, 5), 1000, dtype=jnp.float32), # TODO fix to tile, rate between -1 and 1
     },
-    "movement_points_base": {
-      "type": float,
-      "default": jnp.float32(5),
+    "barrier": {
+      "type": jnp.ndarray,
+      "default": jnp.tile(
+          jnp.array([10., 100., 0.1, 0., 0., 0.], dtype=jnp.float32), 
+          (env_config['HEROES_PER_TEAM'] * 2, 1)
+          ), # (HEROES_PER_TEAM * 2) by (current, max, percentage, regeneration, regeneration_rate, layers)
       "obs": True,
-      "low": 0,
-      "high": 50,
+      "low": jnp.zeros((env_config['HEROES_PER_TEAM'] * 2, 6), dtype=jnp.float32), # TODO fix to tile, regen can be negative, rate between -1 and 1
+      "high": jnp.full((env_config['HEROES_PER_TEAM'] * 2, 6), 1000, dtype=jnp.float32), # TODO fix to tile, rate between -1 and 1
     },
-    "movement_points_current": {
-      "type": float,
-      "default": jnp.float32(5),
+    "physical_defence": {
+      "type": jnp.ndarray,
+      "default": jnp.zeros((env_config['HEROES_PER_TEAM'] * 2, 6), dtype=jnp.float32), # (HEROES_PER_TEAM * 2) by (block, resist, immunity, evasion, damage_return, damage_return_rate)
       "obs": True,
-      "low": 0,
-      "high": 50,
+      "low": jnp.full((env_config['HEROES_PER_TEAM'] * 2, 6), -1000, dtype=jnp.float32), # TODO fix to tile, eg evasion between 0 and 1
+      "high": jnp.full((env_config['HEROES_PER_TEAM'] * 2, 6), 1000, dtype=jnp.float32), # TODO fix to tile, eg evasion between 0 and 1
     },
-    "movement_points_max": {
-      "type": float,
-      "default": jnp.float32(5),
+    "magical_defence": {
+      "type": jnp.ndarray,
+      "default": jnp.zeros((env_config['HEROES_PER_TEAM'] * 2, 6), dtype=jnp.float32), # (HEROES_PER_TEAM * 2) by (block, resist, immunity, evasion, damage_return, damage_return_rate)
       "obs": True,
-      "low": 0,
-      "high": 50,
+      "low": jnp.full((env_config['HEROES_PER_TEAM'] * 2, 6), -1000, dtype=jnp.float32), # TODO fix to tile, eg evasion between 0 and 1
+      "high": jnp.full((env_config['HEROES_PER_TEAM'] * 2, 6), 1000, dtype=jnp.float32), # TODO fix to tile, eg evasion between 0 and 1
     },
-    "movement_points_percentage": {
-      "type": float,
-      "default": jnp.float32(1),
+    "pure_defence": {
+      "type": jnp.ndarray,
+      "default": jnp.zeros((env_config['HEROES_PER_TEAM'] * 2, 6), dtype=jnp.float32), # (HEROES_PER_TEAM * 2) by (block, resist, immunity, evasion, damage_return, damage_return_rate)
       "obs": True,
-      "low": 0,
-      "high": 1,
+      "low": jnp.full((env_config['HEROES_PER_TEAM'] * 2, 6), -1000, dtype=jnp.float32), # TODO fix to tile, eg evasion between 0 and 1
+      "high": jnp.full((env_config['HEROES_PER_TEAM'] * 2, 6), 1000, dtype=jnp.float32), # TODO fix to tile, eg evasion between 0 and 1
     },
-    "movement_points_multiplier": {
-      "type": float,
-      "default": jnp.float32(1),
+    "strength": {
+      "type": jnp.ndarray,
+      "default": jnp.full((env_config['HEROES_PER_TEAM'] * 2, 4), 10, dtype=jnp.float32), # (HEROES_PER_TEAM * 2) by (base, current, soft_cap, max)
       "obs": True,
-      "low": 0,
-      "high": 10,
+      "low": jnp.zeros((env_config['HEROES_PER_TEAM'] * 2, 4), dtype=jnp.float32),
+      "high": jnp.full((env_config['HEROES_PER_TEAM'] * 2, 4), 1000, dtype=jnp.float32),
     },
-    "health_current": {
-      "type": float,
-      "default": jnp.float32(100),
+    "agility": {
+      "type": jnp.ndarray,
+      "default": jnp.full((env_config['HEROES_PER_TEAM'] * 2, 4), 10, dtype=jnp.float32), # (HEROES_PER_TEAM * 2) by (base, current, soft_cap, max)
       "obs": True,
-      "low": 0,
-      "high": 1000,
+      "low": jnp.zeros((env_config['HEROES_PER_TEAM'] * 2, 4), dtype=jnp.float32),
+      "high": jnp.full((env_config['HEROES_PER_TEAM'] * 2, 4), 1000, dtype=jnp.float32),
     },
-    "health_max": {
-      "type": float,
-      "default": jnp.float32(100),
+    "intelligence": {
+      "type": jnp.ndarray,
+      "default": jnp.full((env_config['HEROES_PER_TEAM'] * 2, 4), 10, dtype=jnp.float32), # (HEROES_PER_TEAM * 2) by (base, current, soft_cap, max)
       "obs": True,
-      "low": 0,
-      "high": 1000,
+      "low": jnp.zeros((env_config['HEROES_PER_TEAM'] * 2, 4), dtype=jnp.float32),
+      "high": jnp.full((env_config['HEROES_PER_TEAM'] * 2, 4), 1000, dtype=jnp.float32),
     },
-    "health_percentage": {
-      "type": float,
-      "default": jnp.float32(1),
+    "resolve": {
+      "type": jnp.ndarray,
+      "default": jnp.full((env_config['HEROES_PER_TEAM'] * 2, 4), 10, dtype=jnp.float32), # (HEROES_PER_TEAM * 2) by (base, current, soft_cap, max)
       "obs": True,
-      "low": 0,
-      "high": 1,
-    },
-    "health_regeneration": {
-      "type": float,
-      "default": jnp.float32(1),
-      "obs": True,
-      "low": -1000,
-      "high": 1000,
-    },
-    "health_regeneration_rate": {
-      "type": float,
-      "default": jnp.float32(0),
-      "obs": True,
-      "low": -1,
-      "high": 1,
-    },
-    "mana_current": {
-      "type": float,
-      "default": jnp.float32(100),
-      "obs": True,
-      "low": 0,
-      "high": 1000,
-    },
-    "mana_max": {
-      "type": float,
-      "default": jnp.float32(100),
-      "obs": True,
-      "low": 0,
-      "high": 1000,
-    },
-    "mana_percentage": {
-      "type": float,
-      "default": jnp.float32(1),
-      "obs": True,
-      "low": 0,
-      "high": 1,
-    },
-    "mana_regeneration": {
-      "type": float,
-      "default": jnp.float32(5),
-      "obs": True,
-      "low": 0,
-      "high": 1000,
-    },
-    "mana_regeneration_rate": {
-      "type": float,
-      "default": jnp.float32(0),
-      "obs": True,
-      "low": -1,
-      "high": 1,
-    },
-    "barrier_current": {
-      "type": float,
-      "default": jnp.float32(10),
-      "obs": True,
-      "low": 0,
-      "high": 1000,
-    },
-    "barrier_status_reduction": {
-      "type": float,
-      "default": jnp.float32(1),
-      "obs": True,
-      "low": 0,
-      "high": 100,
-    },
-    "barrier_max": {
-      "type": float,
-      "default": jnp.float32(100),
-      "obs": True,
-      "low": 0,
-      "high": 1000,
-    },
-    "barrier_percentage": {
-      "type": float,
-      "default": jnp.float32(0),
-      "obs": True,
-      "low": 0,
-      "high": 1,
-    },
-    "barrier_regeneration": {
-      "type": float,
-      "default": jnp.float32(0),
-      "obs": True,
-      "low": 0,
-      "high": 1000,
-    },
-    "barrier_regeneration_rate": {
-      "type": float,
-      "default": jnp.float32(0),
-      "obs": True,
-      "low": -1,
-      "high": 1,
-    },
-    "physical_block": {
-      "type": float,
-      "default": jnp.float32(0),
-      "obs": True,
-      "low": -1000,
-      "high": 1000,
-    },
-    "magical_block": {
-      "type": float,
-      "default": jnp.float32(0),
-      "obs": True,
-      "low": -1000,
-      "high": 1000,
-    },
-    "physical_resist": {
-      "type": float,
-      "default": jnp.float32(0),
-      "obs": True,
-      "low": -1,
-      "high": 1,
-    },
-    "magical_resist": {
-      "type": float,
-      "default": jnp.float32(0),
-      "obs": True,
-      "low": -1,
-      "high": 1,
-    },
-    "physical_immunity": {
-      "type": bool,
-      "default": False,
-      "obs": True,
-      "low": False,
-      "high": True,
-    },
-    "magical_immunity": {
-      "type": bool,
-      "default": False,
-      "obs": True,
-      "low": False,
-      "high": True,
-    },
-    "physical_evasion": {
-      "type": float,
-      "default": jnp.float32(0),
-      "obs": True,
-      "low": 0,
-      "high": 1,
-    },
-    "magical_evasion": {
-      "type": float,
-      "default": jnp.float32(0),
-      "obs": True,
-      "low": 0,
-      "high": 1,
-    },
-    "physical_damage_return": {
-      "type": float,
-      "default": jnp.float32(0),
-      "obs": True,
-      "low": -1000,
-      "high": 1000,
-    },
-    "physical_damage_return_rate": {
-      "type": float,
-      "default": jnp.float32(0),
-      "obs": True,
-      "low": -1000,
-      "high": 1000,
-    },
-    "magical_damage_return": {
-      "type": float,
-      "default": jnp.float32(0),
-      "obs": True,
-      "low": -1000,
-      "high": 1000,
-    },
-    "magical_damage_return_rate": {
-      "type": float,
-      "default": jnp.float32(0),
-      "obs": True,
-      "low": -1,
-      "high": 1,
-    },
-    "pure_damage_return": {
-      "type": float,
-      "default": jnp.float32(0),
-      "obs": True,
-      "low": -1000,
-      "high": 1000,
-    },
-    "pure_damage_return_rate": {
-      "type": float,
-      "default": jnp.float32(0),
-      "obs": True,
-      "low": -1,
-      "high": 1,
-    },
-    "base_strength": {
-      "type": float,
-      "default": jnp.float32(10),
-      "obs": True,
-      "low": 0,
-      "high": 1000,
-    },
-    "strength_current": {
-      "type": float,
-      "default": jnp.float32(10),
-      "obs": True,
-      "low": 0,
-      "high": 1000,
-    },
-    "base_agility": {
-      "type": float,
-      "default": jnp.float32(10),
-      "obs": True,
-      "low": 0,
-      "high": 1000,
-    },
-    "agility_current": {
-      "type": float,
-      "default": jnp.float32(10),
-      "obs": True,
-      "low": 0,
-      "high": 1000,
-    },
-    "base_intelligence": {
-      "type": float,
-      "default": jnp.float32(10),
-      "obs": True,
-      "low": 0,
-      "high": 1000,
-    },
-    "intelligence_current": {
-      "type": float,
-      "default": jnp.float32(10),
-      "obs": True,
-      "low": 0,
-      "high": 1000,
-    },
-    "base_resolve": {
-      "type": float,
-      "default": jnp.float32(10),
-      "obs": True,
-      "low": 0,
-      "high": 1000,
-    },
-    "resolve_current": {
-      "type": float,
-      "default": jnp.float32(10),
-      "obs": True,
-      "low": 0,
-      "high": 1000,
-    },
-    "attack_damage_amplification": {
-      "type": float,
-      "default": jnp.float32(1),
-      "obs": True,
-      "low": -1,
-      "high": 10,
-    },
-    "melee_base_attack_damage": {
-      "type": float,
-      "default": jnp.float32(25),
-      "obs": True,
-      "low": -1000,
-      "high": 1000,
-    },
-    "melee_attack_range": {
-      "type": float,
-      "default": jnp.float32(2.1),
-      "obs": True,
-      "low": 0,
-      "high": 10,
-    },
-    "melee_crit_chance": {
-      "type": float,
-      "default": jnp.float32(0),
-      "obs": True,
-      "low": 0,
-      "high": 1,
-    },
-    "melee_crit_modifier": {
-      "type": float,
-      "default": jnp.float32(1.5),
-      "obs": True,
-      "low": 1,
-      "high": 10,
-    },
-    "ranged_base_attack_damage": {
-      "type": float,
-      "default": jnp.float32(15),
-      "obs": True,
-      "low": -1000,
-      "high": 1000,
-    },
-    "ranged_attack_range": {
-      "type": float,
-      "default": jnp.float32(5),
-      "obs": True,
-      "low": 0,
-      "high": 20,
-    },
-    "ranged_crit_chance": {
-      "type": float,
-      "default": jnp.float32(0),
-      "obs": True,
-      "low": 0,
-      "high": 1,
-    },
-    "ranged_crit_modifier": {
-      "type": float,
-      "default": jnp.float32(1.5),
-      "obs": True,
-      "low": 1,
-      "high": 3,
+      "low": jnp.zeros((env_config['HEROES_PER_TEAM'] * 2, 4), dtype=jnp.float32),
+      "high": jnp.full((env_config['HEROES_PER_TEAM'] * 2, 4), 1000, dtype=jnp.float32),
     },
     "damage_amplification": {
-      "type": float,
-      "default": jnp.float32(1),
-      "obs": True,
-      "low": 0,
-      "high": 10,
-    },
-    "physical_lifesteal": {
-      "type": float,
-      "default": jnp.float32(0),
-      "obs": True,
-      "low": -10,
-      "high": 10,
-    },
-    "magical_lifesteal": {
-      "type": float,
-      "default": jnp.float32(0),
-      "obs": True,
-      "low": -10,
-      "high": 10,
-    },
-    "pure_lifesteal": {
-      "type": float,
-      "default": jnp.float32(0),
-      "obs": True,
-      "low": -10,
-      "high": 10,
-    },
-    "silenced_flag": {
-      "type": bool,
-      "default": False,
-      "obs": True,
-      "low": False,
-      "high": True,
-    },
-    "silenced_duration": {
-      "type": int,
-      "default": jnp.int32(0),
-      "obs": True,
-      "low": 0,
-      "high": 30,
-    },
-    "silenced_permanent": {
-      "type": bool,
-      "default": False,
-      "obs": True,
-      "low": False,
-      "high": True,
-    },
-    "silenced_dispelable": {
-      "type": bool,
-      "default": True,
-      "obs": True,
-      "low": False,
-      "high": True,
-    },
-    "silenced_needs_greater_dispel": {
-      "type": bool,
-      "default": False,
-      "obs": True,
-      "low": False,
-      "high": True,
-    },
-    "broken_flag": {
-      "type": bool,
-      "default": False,
-      "obs": True,
-      "low": False,
-      "high": True,
-    },
-    "broken_duration": {
-      "type": int,
-      "default": jnp.int32(0),
-      "obs": True,
-      "low": 0,
-      "high": 30,
-    },
-    "broken_permanent": {
-      "type": bool,
-      "default": False,
-      "obs": True,
-      "low": False,
-      "high": True,
-    },
-    "broken_dispelable": {
-      "type": bool,
-      "default": True,
-      "obs": True,
-      "low": False,
-      "high": True,
-    },
-    "broken_needs_greater_dispel": {
-      "type": bool,
-      "default": False,
-      "obs": True,
-      "low": False,
-      "high": True,
-    },
-    "stunned_flag": {
-      "type": bool,
-      "default": False,
-      "obs": True,
-      "low": False,
-      "high": True,
-    },
-    "stunned_duration": {
-      "type": int,
-      "default": jnp.int32(0),
-      "obs": True,
-      "low": 0,
-      "high": 30,
-    },
-    "stunned_permanent": {
-      "type": bool,
-      "default": False,
-      "obs": True,
-      "low": False,
-      "high": True,
-    },
-    "stunned_dispelable": {
-      "type": bool,
-      "default": True,
-      "obs": True,
-      "low": False,
-      "high": True,
-    },
-    "stunned_needs_greater_dispel": {
-      "type": bool,
-      "default": False,
-      "obs": True,
-      "low": False,
-      "high": True,
-    },
-    "feared_flag": {
-      "type": bool,
-      "default": False,
-      "obs": True,
-      "low": False,
-      "high": True,
-    },
-    "feared_duration": {
-      "type": int,
-      "default": jnp.int32(0),
-      "obs": True,
-      "low": 0,
-      "high": 30,
-    },
-    "feared_permanent": {
-      "type": bool,
-      "default": False,
-      "obs": True,
-      "low": False,
-      "high": True,
-    },
-    "feared_dispelable": {
-      "type": bool,
-      "default": True,
-      "obs": True,
-      "low": False,
-      "high": True,
-    },
-    "feared_needs_greater_dispel": {
-      "type": bool,
-      "default": False,
-      "obs": True,
-      "low": False,
-      "high": True,
-    },
-    "taunted_flag": {
-      "type": bool,
-      "default": False,
-      "obs": True,
-      "low": False,
-      "high": True,
-    },
-    "taunted_duration": {
-      "type": int,
-      "default": jnp.int32(0),
-      "obs": True,
-      "low": 0,
-      "high": 30,
-    },
-    "taunted_permanent": {
-      "type": bool,
-      "default": False,
-      "obs": True,
-      "low": False,
-      "high": True,
-    },
-    "taunted_dispelable": {
-      "type": bool,
-      "default": True,
-      "obs": True,
-      "low": False,
-      "high": True,
-    },
-    "taunted_needs_greater_dispel": {
-      "type": bool,
-      "default": False,
-      "obs": True,
-      "low": False,
-      "high": True,
-    },
-    "invisible_flag": {
-      "type": bool,
-      "default": False,
-      "obs": True,
-      "low": False,
-      "high": True,
-    },
-    "invisible_duration": {
-      "type": int,
-      "default": jnp.int32(0),
-      "obs": True,
-      "low": 0,
-      "high": 30,
-    },
-    "invisible_permanent": {
-      "type": bool,
-      "default": False,
-      "obs": True,
-      "low": False,
-      "high": True,
-    },
-    "invisible_dispelable": {
-      "type": bool,
-      "default": True,
-      "obs": True,
-      "low": False,
-      "high": True,
-    },
-    "invisible_needs_greater_dispel": {
-      "type": bool,
-      "default": False,
-      "obs": True,
-      "low": False,
-      "high": True,
-    },
-    "sleeping_flag": {
-      "type": bool,
-      "default": False,
-      "obs": True,
-      "low": False,
-      "high": True,
-    },
-    "sleeping_duration": {
-      "type": int,
-      "default": jnp.int32(0),
-      "obs": True,
-      "low": 0,
-      "high": 30,
-    },
-    "sleeping_permanent": {
-      "type": bool,
-      "default": False,
-      "obs": True,
-      "low": False,
-      "high": True,
-    },
-    "sleeping_dispelable": {
-      "type": bool,
-      "default": True,
-      "obs": True,
-      "low": False,
-      "high": True,
-    },
-    "sleeping_needs_greater_dispel": {
-      "type": bool,
-      "default": False,
-      "obs": True,
-      "low": False,
-      "high": True,
-    },
-    "ethereal_flag": {
-      "type": bool,
-      "default": False,
-      "obs": True,
-      "low": False,
-      "high": True,
-    },
-    "ethereal_duration": {
-      "type": int,
-      "default": jnp.int32(0),
-      "obs": True,
-      "low": 0,
-      "high": 30,
-    },
-    "ethereal_permanent": {
-      "type": bool,
-      "default": False,
-      "obs": True,
-      "low": False,
-      "high": True,
-    },
-    "ethereal_dispelable": {
-      "type": bool,
-      "default": True,
-      "obs": True,
-      "low": False,
-      "high": True,
-    },
-    "ethereal_needs_greater_dispel": {
-      "type": bool,
-      "default": False,
-      "obs": True,
-      "low": False,
-      "high": True,
-    },
-    "untargetable_flag": {
-      "type": bool,
-      "default": False,
-      "obs": True,
-      "low": False,
-      "high": True,
-    },
-    "untargetable_duration": {
-      "type": int,
-      "default": jnp.int32(0),
-      "obs": True,
-      "low": 0,
-      "high": 30,
-    },
-    "untargetable_permanent": {
-      "type": bool,
-      "default": False,
-      "obs": True,
-      "low": False,
-      "high": True,
-    },
-    "untargetable_dispelable": {
-      "type": bool,
-      "default": True,
-      "obs": True,
-      "low": False,
-      "high": True,
-    },
-    "untargetable_needs_greater_dispel": {
-      "type": bool,
-      "default": False,
-      "obs": True,
-      "low": False,
-      "high": True,
-    },
-    "hidden_flag": {
-      "type": bool,
-      "default": False,
-      "obs": True,
-      "low": False,
-      "high": True,
-    },
-    "hidden_duration": {
-      "type": int,
-      "default": jnp.int32(0),
-      "obs": True,
-      "low": 0,
-      "high": 30,
-    },
-    "hidden_permanent": {
-      "type": bool,
-      "default": False,
-      "obs": True,
-      "low": False,
-      "high": True,
-    },
-    "hidden_dispelable": {
-      "type": bool,
-      "default": True,
-      "obs": True,
-      "low": False,
-      "high": True,
-    },
-    "hidden_needs_greater_dispel": {
-      "type": bool,
-      "default": False,
-      "obs": True,
-      "low": False,
-      "high": True,
-    },
-    "phased_flag": {
-      "type": bool,
-      "default": False,
-      "obs": True,
-      "low": False,
-      "high": True,
-    },
-    "phased_duration": {
-      "type": int,
-      "default": jnp.int32(0),
-      "obs": True,
-      "low": 0,
-      "high": 30,
-    },
-    "phased_permanent": {
-      "type": bool,
-      "default": False,
-      "obs": True,
-      "low": False,
-      "high": True,
-    },
-    "phased_dispelable": {
-      "type": bool,
-      "default": True,
-      "obs": True,
-      "low": False,
-      "high": True,
-    },
-    "phased_needs_greater_dispel": {
-      "type": bool,
-      "default": False,
-      "obs": True,
-      "low": False,
-      "high": True,
-    },
-    "blind_flag": {
-      "type": bool,
-      "default": False,
-      "obs": True,
-      "low": False,
-      "high": True,
-    },
-    "blind_duration": {
-      "type": int,
-      "default": jnp.int32(0),
-      "obs": True,
-      "low": 0,
-      "high": 30,
-    },
-    "blind_permanent": {
-      "type": bool,
-      "default": False,
-      "obs": True,
-      "low": False,
-      "high": True,
-    },
-    "blind_dispelable": {
-      "type": bool,
-      "default": True,
-      "obs": True,
-      "low": False,
-      "high": True,
-    },
-    "blind_needs_greater_dispel": {
-      "type": bool,
-      "default": False,
-      "obs": True,
-      "low": False,
-      "high": True,
-    },
-    "disarmed_flag": {
-      "type": bool,
-      "default": False,
-      "obs": True,
-      "low": False,
-      "high": True,
-    },
-    "disarmed_duration": {
-      "type": int,
-      "default": jnp.int32(0),
-      "obs": True,
-      "low": 0,
-      "high": 30,
-    },
-    "disarmed_permanent": {
-      "type": bool,
-      "default": False,
-      "obs": True,
-      "low": False,
-      "high": True,
-    },
-    "disarmed_dispelable": {
-      "type": bool,
-      "default": True,
-      "obs": True,
-      "low": False,
-      "high": True,
-    },
-    "disarmed_needs_greater_dispel": {
-      "type": bool,
-      "default": False,
-      "obs": True,
-      "low": False,
-      "high": True,
-    },
-    "ability_state_1": {
-      "type": "AbilityState",
-      "obs": True
-    },
-    "ability_state_2": {
-      "type": "AbilityState",
-      "obs": True
-    },
-    "ability_status_state_1": {
-      "type": "AbilityStatusState",
-      "obs": True
-    },
-    "ability_status_state_2": {
-      "type": "AbilityStatusState",
-      "obs": True
+      "type": jnp.ndarray,
+      "default": jnp.ones((env_config['HEROES_PER_TEAM'] * 2, 4), dtype=jnp.float32), # (HEROES_PER_TEAM * 2) by (universal, physical, magical, pure)
+      "obs": True,
+      "low": jnp.full((env_config['HEROES_PER_TEAM'] * 2, 4), -10, dtype=jnp.float32),
+      "high": jnp.full((env_config['HEROES_PER_TEAM'] * 2, 4), 10, dtype=jnp.float32),
+    },
+    "melee_attack": {
+      "type": jnp.ndarray,
+      "default": jnp.tile(
+          jnp.array([25., 2.1, 0, 1.5], dtype=jnp.float32), 
+          (env_config['HEROES_PER_TEAM'] * 2, 1)
+          ), # (HEROES_PER_TEAM * 2) by (base_damage, attack_range, critical_chance, critical_damage_modifier)
+      "obs": True,
+      "low": jnp.full((env_config['HEROES_PER_TEAM'] * 2, 6), -1000, dtype=jnp.float32), # TODO fix to tile, eg critical_chance between 0 and 1
+      "high": jnp.full((env_config['HEROES_PER_TEAM'] * 2, 6), 1000, dtype=jnp.float32), # TODO fix to tile, eg critical_chance between 0 and 1
+    },
+    "ranged_attack": {
+      "type": jnp.ndarray,
+      "default": jnp.tile(
+          jnp.array([15., 5, 0, 1.5], dtype=jnp.float32), 
+          (env_config['HEROES_PER_TEAM'] * 2, 1)
+          ), # (HEROES_PER_TEAM * 2) by (base_damage, attack_range, critical_chance, critical_damage_modifier)
+      "obs": True,
+      "low": jnp.full((env_config['HEROES_PER_TEAM'] * 2, 6), -1000, dtype=jnp.float32), # TODO fix to tile, eg critical_chance between 0 and 1
+      "high": jnp.full((env_config['HEROES_PER_TEAM'] * 2, 6), 1000, dtype=jnp.float32), # TODO fix to tile, eg critical_chance between 0 and 1
+    },
+    "lifesteal": {
+      "type": jnp.ndarray,
+      "default": jnp.zeros((env_config['HEROES_PER_TEAM'] * 2, 3), dtype=jnp.float32), # (HEROES_PER_TEAM * 2) by (physical, magical, pure)
+      "obs": True,
+      "low": jnp.full((env_config['HEROES_PER_TEAM'] * 2, 3), -10, dtype=jnp.float32),
+      "high": jnp.full((env_config['HEROES_PER_TEAM'] * 2, 3), 10, dtype=jnp.float32),
+    },
+    "silenced": {
+      "type": jnp.ndarray,
+      "default": jnp.zeros((env_config['HEROES_PER_TEAM'] * 2, 4), dtype=jnp.int32), # (HEROES_PER_TEAM * 2) by (flag, duration, dispelable, needs_greater_dispel)
+      "obs": True,
+      "low": jnp.zeros((env_config['HEROES_PER_TEAM'] * 2, 4), dtype=jnp.int32),
+      "high": jnp.tile(
+          jnp.array([1, 100, 1, 1], dtype=jnp.int32), 
+          (env_config['HEROES_PER_TEAM'] * 2, 1)
+          ),
+    },
+    "broken": {
+      "type": jnp.ndarray,
+      "default": jnp.zeros((env_config['HEROES_PER_TEAM'] * 2, 4), dtype=jnp.int32), # (HEROES_PER_TEAM * 2) by (flag, duration, dispelable, needs_greater_dispel)
+      "obs": True,
+      "low": jnp.zeros((env_config['HEROES_PER_TEAM'] * 2, 4), dtype=jnp.int32),
+      "high": jnp.tile(
+          jnp.array([1, 100, 1, 1], dtype=jnp.int32), 
+          (env_config['HEROES_PER_TEAM'] * 2, 1)
+          ),
+    },
+    "stunned": {
+      "type": jnp.ndarray,
+      "default": jnp.zeros((env_config['HEROES_PER_TEAM'] * 2, 4), dtype=jnp.int32), # (HEROES_PER_TEAM * 2) by (flag, duration, dispelable, needs_greater_dispel)
+      "obs": True,
+      "low": jnp.zeros((env_config['HEROES_PER_TEAM'] * 2, 4), dtype=jnp.int32),
+      "high": jnp.tile(
+          jnp.array([1, 100, 1, 1], dtype=jnp.int32), 
+          (env_config['HEROES_PER_TEAM'] * 2, 1)
+          ),
+    },
+    "feared": {
+      "type": jnp.ndarray,
+      "default": jnp.zeros((env_config['HEROES_PER_TEAM'] * 2, 4), dtype=jnp.int32), # (HEROES_PER_TEAM * 2) by (flag, duration, dispelable, needs_greater_dispel)
+      "obs": True,
+      "low": jnp.zeros((env_config['HEROES_PER_TEAM'] * 2, 4), dtype=jnp.int32),
+      "high": jnp.tile(
+          jnp.array([1, 100, 1, 1], dtype=jnp.int32), 
+          (env_config['HEROES_PER_TEAM'] * 2, 1)
+          ),
+    },
+    "taunted": {
+      "type": jnp.ndarray,
+      "default": jnp.zeros((env_config['HEROES_PER_TEAM'] * 2, 4), dtype=jnp.int32), # (HEROES_PER_TEAM * 2) by (flag, duration, dispelable, needs_greater_dispel)
+      "obs": True,
+      "low": jnp.zeros((env_config['HEROES_PER_TEAM'] * 2, 4), dtype=jnp.int32),
+      "high": jnp.tile(
+          jnp.array([1, 100, 1, 1], dtype=jnp.int32), 
+          (env_config['HEROES_PER_TEAM'] * 2, 1)
+          ),
+    },
+    "invisible": {
+      "type": jnp.ndarray,
+      "default": jnp.zeros((env_config['HEROES_PER_TEAM'] * 2, 4), dtype=jnp.int32), # (HEROES_PER_TEAM * 2) by (flag, duration, dispelable, needs_greater_dispel)
+      "obs": True,
+      "low": jnp.zeros((env_config['HEROES_PER_TEAM'] * 2, 4), dtype=jnp.int32),
+      "high": jnp.tile(
+          jnp.array([1, 100, 1, 1], dtype=jnp.int32), 
+          (env_config['HEROES_PER_TEAM'] * 2, 1)
+          ),
+    },
+    "sleepingg": {
+      "type": jnp.ndarray,
+      "default": jnp.zeros((env_config['HEROES_PER_TEAM'] * 2, 4), dtype=jnp.int32), # (HEROES_PER_TEAM * 2) by (flag, duration, dispelable, needs_greater_dispel)
+      "obs": True,
+      "low": jnp.zeros((env_config['HEROES_PER_TEAM'] * 2, 4), dtype=jnp.int32),
+      "high": jnp.tile(
+          jnp.array([1, 100, 1, 1], dtype=jnp.int32), 
+          (env_config['HEROES_PER_TEAM'] * 2, 1)
+          ),
+    },
+    "ethereal": {
+      "type": jnp.ndarray,
+      "default": jnp.zeros((env_config['HEROES_PER_TEAM'] * 2, 4), dtype=jnp.int32), # (HEROES_PER_TEAM * 2) by (flag, duration, dispelable, needs_greater_dispel)
+      "obs": True,
+      "low": jnp.zeros((env_config['HEROES_PER_TEAM'] * 2, 4), dtype=jnp.int32),
+      "high": jnp.tile(
+          jnp.array([1, 100, 1, 1], dtype=jnp.int32), 
+          (env_config['HEROES_PER_TEAM'] * 2, 1)
+          ),
+    },
+    "untargetable": {
+      "type": jnp.ndarray,
+      "default": jnp.zeros((env_config['HEROES_PER_TEAM'] * 2, 4), dtype=jnp.int32), # (HEROES_PER_TEAM * 2) by (flag, duration, dispelable, needs_greater_dispel)
+      "obs": True,
+      "low": jnp.zeros((env_config['HEROES_PER_TEAM'] * 2, 4), dtype=jnp.int32),
+      "high": jnp.tile(
+          jnp.array([1, 100, 1, 1], dtype=jnp.int32), 
+          (env_config['HEROES_PER_TEAM'] * 2, 1)
+          ),
+    },
+    "hidden": {
+      "type": jnp.ndarray,
+      "default": jnp.zeros((env_config['HEROES_PER_TEAM'] * 2, 4), dtype=jnp.int32), # (HEROES_PER_TEAM * 2) by (flag, duration, dispelable, needs_greater_dispel)
+      "obs": True,
+      "low": jnp.zeros((env_config['HEROES_PER_TEAM'] * 2, 4), dtype=jnp.int32),
+      "high": jnp.tile(
+          jnp.array([1, 100, 1, 1], dtype=jnp.int32), 
+          (env_config['HEROES_PER_TEAM'] * 2, 1)
+          ),
+    },
+    "phased": {
+      "type": jnp.ndarray,
+      "default": jnp.zeros((env_config['HEROES_PER_TEAM'] * 2, 4), dtype=jnp.int32), # (HEROES_PER_TEAM * 2) by (flag, duration, dispelable, needs_greater_dispel)
+      "obs": True,
+      "low": jnp.zeros((env_config['HEROES_PER_TEAM'] * 2, 4), dtype=jnp.int32),
+      "high": jnp.tile(
+          jnp.array([1, 100, 1, 1], dtype=jnp.int32), 
+          (env_config['HEROES_PER_TEAM'] * 2, 1)
+          ),
+    },
+    "blind": {
+      "type": jnp.ndarray,
+      "default": jnp.zeros((env_config['HEROES_PER_TEAM'] * 2, 4), dtype=jnp.int32), # (HEROES_PER_TEAM * 2) by (flag, duration, dispelable, needs_greater_dispel)
+      "obs": True,
+      "low": jnp.zeros((env_config['HEROES_PER_TEAM'] * 2, 4), dtype=jnp.int32),
+      "high": jnp.tile(
+          jnp.array([1, 100, 1, 1], dtype=jnp.int32), 
+          (env_config['HEROES_PER_TEAM'] * 2, 1)
+          ),
+    },
+    "disarmed": {
+      "type": jnp.ndarray,
+      "default": jnp.zeros((env_config['HEROES_PER_TEAM'] * 2, 4), dtype=jnp.int32), # (HEROES_PER_TEAM * 2) by (flag, duration, dispelable, needs_greater_dispel)
+      "obs": True,
+      "low": jnp.zeros((env_config['HEROES_PER_TEAM'] * 2, 4), dtype=jnp.int32),
+      "high": jnp.tile(
+          jnp.array([1, 100, 1, 1], dtype=jnp.int32), 
+          (env_config['HEROES_PER_TEAM'] * 2, 1)
+          ),
+    },
+    "abilities": {
+      "type": jnp.ndarray,
+      "default": jnp.tile(
+          jnp.array([-1, 0, 0, 0, 0, 0], dtype=jnp.float32), # (HEROES_PER_TEAM * 2) by (ABILITIES_PER_HERO) by (ability_index, base_cooldown, current_cooldown, parameter_1, parameter_2, parameter_3)
+          (env_config['HEROES_PER_TEAM'] * 2, env_config['ABILITIES_PER_HERO'], 1)
+          ),
+      "obs": True,
+      "low": jnp.tile(
+          jnp.array([-1, 0, 0, -1000, -1000, -1000], dtype=jnp.float32),
+          (env_config['HEROES_PER_TEAM'] * 2, env_config['ABILITIES_PER_HERO'], 1)
+          ),
+      "high": jnp.tile(
+          jnp.array([100, 100, 100, 1000, 1000, 1000], dtype=jnp.float32), # TODO ability_index up to number of abilities
+          (env_config['HEROES_PER_TEAM'] * 2, env_config['ABILITIES_PER_HERO'], 1)
+          ),
+    },
+    "ability_status": {
+      "type": jnp.ndarray,
+      "default": jnp.tile(
+          jnp.array([-1, -1, 0, 1000, 1000], dtype=jnp.float32), # (HEROES_PER_TEAM * 2) by (HEROES_PER_TEAM * 2) by (ABILITIES_PER_HERO) by (ability_index, source_player_idx, duration, parameter_1, parameter_2)
+          (env_config['HEROES_PER_TEAM'] * 2, env_config['HEROES_PER_TEAM'] * 2, env_config['ABILITIES_PER_HERO'], 1)
+          ),
+      "obs": True,
+      "low": jnp.tile(
+          jnp.array([-1, -1, 0, -1000, -1000, -1000], dtype=jnp.float32),
+          (env_config['HEROES_PER_TEAM'] * 2, env_config['HEROES_PER_TEAM'] * 2, env_config['ABILITIES_PER_HERO'], 1)
+          ),
+      "high": jnp.tile(
+          jnp.array([100, 100, 100, 1000, 1000], dtype=jnp.float32), # TODO up to number of abilities, number of heroes
+          (env_config['HEROES_PER_TEAM'] * 2, env_config['HEROES_PER_TEAM'] * 2, env_config['ABILITIES_PER_HERO'], 1)
+          ),
     },
     "available_actions": {
-        "type": chex.Array,
-        "default": jnp.zeros(12), #TODO: make this dynamic
+        "type": jnp.ndarray,
+        "default": jnp.zeros((env_config['HEROES_PER_TEAM'] * 2, 12), dtype=jnp.int32), # (HEROES_PER_TEAM * 2) by 12 actions # TODO: make this dynamic instead of 12 actions
         "obs": False
     },
     "suicide_ability_count": {
         "type": int,
-        "default": jnp.int32(0),
+        "default": jnp.zeros((env_config['HEROES_PER_TEAM'] * 2, 1), dtype=jnp.int32),
         "obs": False
     },
     "steal_strength_ability_count": {
         "type": int,
-        "default": jnp.int32(0),
+        "default": jnp.zeros((env_config['HEROES_PER_TEAM'] * 2, 1), dtype=jnp.int32),
         "obs": False
     },
     "multi_attack_ability_count": {
         "type": int,
-        "default": jnp.int32(0),
+        "default": jnp.zeros((env_config['HEROES_PER_TEAM'] * 2, 1), dtype=jnp.int32),
         "obs": False
     },
     "return_ability_count": {
         "type": int,
-        "default": jnp.int32(0),
+        "default": jnp.zeros((env_config['HEROES_PER_TEAM'] * 2, 1), dtype=jnp.int32),
         "obs": False
     },
     "strength_regen_ability_count": {
         "type": int,
-        "default": jnp.int32(0),
+        "default": jnp.zeros((env_config['HEROES_PER_TEAM'] * 2, 1), dtype=jnp.int32),
         "obs": False
     },
     "add_barrier_ability_count": {
         "type": int,
-        "default": jnp.int32(0),
+        "default": jnp.zeros((env_config['HEROES_PER_TEAM'] * 2, 1), dtype=jnp.int32),
         "obs": False
     },
     "base_melee_attack_count": {
         "type": int,
-        "default": jnp.int32(0),
+        "default": jnp.zeros((env_config['HEROES_PER_TEAM'] * 2, 1), dtype=jnp.int32),
         "obs": False
     },
     "base_ranged_attack_count": {
         "type": int,
-        "default": jnp.int32(0),
+        "default": jnp.zeros((env_config['HEROES_PER_TEAM'] * 2, 1), dtype=jnp.int32),
         "obs": False
     },
     "end_turn_count": {
         "type": int,
-        "default": jnp.int32(0),
+        "default": jnp.zeros((env_config['HEROES_PER_TEAM'] * 2, 1), dtype=jnp.int32),
         "obs": False
     },
   },
-  # TODO: "TeamState": {
-  # },
   # TODO: "MapState": {
   # },
   "GameState": {
-    "player": {
-        "type": "UnitState",
-        "obs": True
-        },
-    "enemy": {
-        "type": "UnitState",
+    "units": {
+        "type": "UnitsState",
         "obs": True
         },
     "distance_to_enemy": {
@@ -1100,7 +417,7 @@ schema = { # TODO: make function ? so ability index can be dynamic
         "obs": False
         },
     "cur_player_idx": {
-        "type": chex.Array,
+        "type": jnp.ndarray,
         "default": jnp.zeros(2).at[0].set(1),
         "obs": False
         },
@@ -1109,55 +426,46 @@ schema = { # TODO: make function ? so ability index can be dynamic
         "default": False,
         "obs": False
         },
-    "pool_ability_1": {
-        "type": "AbilityState",
-        "obs": True
-        },
-    "pool_ability_2": {
-        "type": "AbilityState",
-        "obs": True
-        },
-    "pool_ability_3": {
-        "type": "AbilityState",
-        "obs": True
-        },
+    "ability_pool": {
+      "type": jnp.ndarray,
+      "default": jnp.tile(
+          jnp.array([-1, 0, 0, 0, 0, 0], dtype=jnp.float32), # (ABILITY_POOL_SIZE) by (ability_index, base_cooldown, current_cooldown, parameter_1, parameter_2, parameter_3)
+          (env_config['ABILITY_POOL_SIZE'], 1)
+          ),
+      "obs": True,
+      "low": jnp.tile(
+          jnp.array([-1, 0, 0, -1000, -1000, -1000], dtype=jnp.float32),
+          (env_config['HEROES_PER_TEAM'] * 2, env_config['ABILITIES_PER_HERO'], 1)
+          ),
+      "high": jnp.tile(
+          jnp.array([100, 100, 100, 1000, 1000, 1000], dtype=jnp.float32), # TODO ability_index up to number of abilities
+          (env_config['HEROES_PER_TEAM'] * 2, env_config['ABILITIES_PER_HERO'], 1)
+          ),
+    },
     "pick_mode": {
         "type": int,
         "default": jnp.int32(1),
         "obs": True
         },
-    "pool_ability_1_picked": {
-        "type": int,
-        "default": jnp.int32(0),
+    "ability_pool_picked": {
+        "type": jnp.ndarray,
+        "default": jnp.zeros((env_config['ABILITY_POOL_SIZE']), dtype=jnp.int32),
         "obs": True,
-        "low": 0,
-        "high": 1,
-        },
-    "pool_ability_2_picked": {
-        "type": int,
-        "default": jnp.int32(0),
-        "obs": True,
-        "low": 0,
-        "high": 1,
-        },
-    "pool_ability_3_picked": {
-        "type": int,
-        "default": jnp.int32(0),
-        "obs": True,
-        "low": 0,
-        "high": 1,
+        "low": jnp.zeros((env_config['ABILITY_POOL_SIZE']), dtype=jnp.int32),
+        "high": jnp.ones((env_config['ABILITY_POOL_SIZE']), dtype=jnp.int32),
         },
     "pick_count": {
         "type": int,
         "default": jnp.int32(0),
         "obs": True,
         "low": 0,
-        "high": 1,
+        "high": 100,
         },
   },
 }
 
-# Define the function that creates UnitState, TeamState, MapState, and GameState dataclasses from the schema
+
+# Define the function that creates UnitsState, TeamState, MapState, and GameState dataclasses from the schema
 def create_struct_dataclass(schema):
     classes = {}
     for key, value in schema.items():
@@ -1171,12 +479,16 @@ def create_struct_dataclass(schema):
 # Create classes from schema first
 schema_classes = create_struct_dataclass(schema)
 
+schema_classes = create_struct_dataclass(schema)
+UnitsState = schema_classes['UnitsState']
+GameState = schema_classes['GameState']
+
 # # Define the function that initialises game state
-# def initialise_game_state(UnitState, GameState):
-#     # Construct the default UnitState by evaluating the provided defaults
-#     default_unit_state = UnitState(**{
+# def initialise_game_state(UnitsState, GameState):
+#     # Construct the default UnitsState by evaluating the provided defaults
+#     default_unit_state = UnitsState(**{
 #         k: eval(v['default']) if isinstance(v['default'], str) and 'jnp' in v['default'] else v['default']
-#         for k, v in schema['UnitState'].items()
+#         for k, v in schema['UnitsState'].items()
 #     })
     
 #     # Create player and enemy unit states
@@ -1195,7 +507,7 @@ schema_classes = create_struct_dataclass(schema)
 # Define the function that gets the observation bounds
 def get_observation_bounds(state_schema):
     def get_bounds_from_schema(schema_part):
-        # Handle nested UnitState fields
+        # Handle nested UnitsState fields
         nested_bounds = [(schema[v["type"]], v["obs"]) 
                         for k, v in schema_part.items() 
                         if isinstance(v.get("type"), str) and v["type"] in schema and v.get("obs")]
@@ -1217,12 +529,12 @@ def get_observation_bounds(state_schema):
     
     return list(low), list(high)
 
-# Define the function that creates a UnitState instance
-def create_unit_state(UnitState, custom_values=None):
+# Define the function that creates a UnitsState instance
+def create_unit_state(UnitsState, custom_values=None):
     # Get defaults from schema
     defaults = {}
     
-    for field, attrs in schema['UnitState'].items():
+    for field, attrs in schema['UnitsState'].items():
         if isinstance(attrs['type'], str) and attrs['type'] in schema:
             # Handle nested types like AbilityState and AbilityStatusState
             nested_class = schema_classes[attrs['type']]
@@ -1241,11 +553,21 @@ def create_unit_state(UnitState, custom_values=None):
         # Remove the item() conversion and just use values directly
         defaults.update(custom_values)
         
-    # Create UnitState instance
-    return UnitState(**defaults)
+    # Create UnitsState instance
+    return UnitsState(**defaults)
 
 # Define the function that takes in the schema and a GameState object and returns the observation array # TODO: this flattens arrays, might need to unflatten for CNN etc later
 def get_observation_values(state_obj: Any, schema: Dict, parent_key: str = '') -> List[float]:
+    """Get observation values from state object according to schema.
+    
+    Args:
+        state_obj: State object containing game data
+        schema: Schema dictionary defining state structure
+        parent_key: Key path for nested objects
+        
+    Returns:
+        List of flattened observation values
+    """
     schema_section = schema.get(state_obj.__class__.__name__, schema)
     
     nested_values = [
@@ -1266,18 +588,50 @@ def get_observation_values(state_obj: Any, schema: Dict, parent_key: str = '') -
     
     return nested_values + direct_values
 
-def create_get_obs_functions(schema: Dict):
-    def get_player_obs(state):
+def create_get_obs_functions(schema: Dict) -> Tuple[Callable, Callable]:
+    """Creates functions to get observations for player and enemy perspectives.
+    
+    Args:
+        schema: Dictionary defining state structure
+        
+    Returns:
+        (get_player_obs, get_enemy_obs): Functions that return observations
+    """
+    
+    def get_player_obs(state: GameState) -> chex.Array:
         return jnp.array(get_observation_values(state, schema))
     
-    def get_enemy_obs(state):
-        swapped_state = state.replace(
-            player=state.enemy,
-            enemy=state.player
+    def get_enemy_obs(state: GameState) -> chex.Array:
+        # Swap team order in UnitsState arrays
+        swapped_units = state.units.replace(
+            **{field: _swap_team_order(getattr(state.units, field)) 
+               for field in state.units.__dict__.keys()}
         )
+        swapped_state = state.replace(units=swapped_units)
         return jnp.array(get_observation_values(swapped_state, schema))
     
     return get_player_obs, get_enemy_obs
+
+def _swap_team_order(array: chex.Array) -> chex.Array:
+    """Swaps player and enemy sections of array along first dimension.
+    
+    Args:
+        array: Input array with shape (units, ...)
+        
+    Returns:
+        Array with team order swapped
+    """
+    heroes_per_team = env_config['HEROES_PER_TEAM']
+    
+    # Handle 1D arrays or higher dimensions uniformly
+    if len(array.shape) <= 1:
+        return array  # Skip swapping for non-unit arrays
+        
+    # For all other arrays, swap team sections
+    return jnp.concatenate([
+        array[heroes_per_team:],
+        array[:heroes_per_team]
+    ])
 
 def make_schema_based_observation(state, aidx, schema):
     get_player_obs, get_enemy_obs = create_get_obs_functions(schema)

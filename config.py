@@ -9,6 +9,9 @@ env_config = {
     "MOVEMENT_POINTS": 6,
     "ACTION_POINTS": 1,
     "MAX_STEPS": 512,
+    "HEROES_PER_TEAM": 1,
+    "ABILITIES_PER_HERO": 2,
+    "ABILITY_POOL_SIZE": 3,
     }
 
 # Configuration dictionary for the training
