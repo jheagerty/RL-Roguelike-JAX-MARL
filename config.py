@@ -19,7 +19,7 @@ train_config = {
     "LR": 5e-4,                           # Learning rate
     "NUM_ENVS": 128,                     # Number of environments
     "NUM_STEPS": 128,                     # Number of steps per environment
-    "TOTAL_TIMESTEPS": 1e5,              # Total number of timesteps
+    "TOTAL_TIMESTEPS": 1e6,              # Total number of timesteps
     "UPDATE_EPOCHS": 4,                   # Number of update epochs
     "NUM_MINIBATCHES": 4,                 # Number of minibatches
     "GAMMA": 0.99,                        # Discount factor for rewards

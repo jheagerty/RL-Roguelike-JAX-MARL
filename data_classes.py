@@ -35,7 +35,7 @@ schema = { # TODO: make function ? so ability index can be dynamic
     "action_points": {
       "type": jnp.ndarray,
       "default": jnp.tile(
-          jnp.array([5., 5., 5.], dtype=jnp.float32), 
+          jnp.array([3., 3., 5.], dtype=jnp.float32), 
           (env_config['HEROES_PER_TEAM'] * 2, 1)
           ), # (HEROES_PER_TEAM * 2) by (base, current, max)
       "obs": True,
@@ -141,7 +141,7 @@ schema = { # TODO: make function ? so ability index can be dynamic
     "melee_attack": {
       "type": jnp.ndarray,
       "default": jnp.tile(
-          jnp.array([25., 2.1, 0, 1.5], dtype=jnp.float32), 
+          jnp.array([20., 2.1, 0, 1.5], dtype=jnp.float32), 
           (env_config['HEROES_PER_TEAM'] * 2, 1)
           ), # (HEROES_PER_TEAM * 2) by (base_damage, attack_range, critical_chance, critical_damage_modifier)
       "obs": True,

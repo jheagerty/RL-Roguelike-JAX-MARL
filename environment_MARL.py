@@ -386,7 +386,7 @@ class RL_Roguelike_JAX_MARL(MultiAgentEnv):
             state,
             action,
             source_idx,
-            0  # Default target (will be handled by individual actions)
+            jnp.where(source_idx == 0, env_config['HEROES_PER_TEAM'], 0) # TODO: Make dynamic
         )
         
         # Update available actions

@@ -127,13 +127,27 @@ class PickPoolAbility(Action):
         # Mark ability as picked in pool
         new_ability_pool_picked = state.ability_pool_picked.at[self.pool_index].set(1)
 
+        # def increment_turn(_):
+        #     return state.turn_count + 1
+
+        # def keep_turn(_):
+        #     return state.turn_count
+
+        # new_turn_count = lax.cond(
+        #     source_id < env_config['HEROES_PER_TEAM'],
+        #     increment_turn,
+        #     keep_turn,
+        #     None
+        # )
+
         # Return updated game state
         return state.replace(
             units=new_units,
             pick_count=new_pick_count,
             pick_mode=new_pick_mode,
             cur_player_idx=new_cur_player_idx,
-            ability_pool_picked=new_ability_pool_picked
+            ability_pool_picked=new_ability_pool_picked,
+            turn_count=state.turn_count + 1, # TODO rework once more than 2 units
         )
     
 class MoveAction(Action):
@@ -454,21 +468,21 @@ class EndTurnAction(Action):
             end_turn_count=new_end_turn_count
         )
 
-        def increment_turn(_):
-            return state.turn_count + 1
+        # def increment_turn(_):
+        #     return state.turn_count + 1
 
-        def keep_turn(_):
-            return state.turn_count
+        # def keep_turn(_):
+        #     return state.turn_count
 
-        new_turn_count = lax.cond(
-            source_id < env_config['HEROES_PER_TEAM'],
-            increment_turn,
-            keep_turn,
-            None
-        )
+        # new_turn_count = lax.cond(
+        #     source_id < env_config['HEROES_PER_TEAM'],
+        #     increment_turn,
+        #     keep_turn,
+        #     None
+        # )
 
         return state.replace(
             units=new_units,
-            turn_count=new_turn_count,
+            turn_count=state.turn_count + 1, # TODO rework once more than 2 units
             cur_player_idx=new_cur_player_idx
         )
