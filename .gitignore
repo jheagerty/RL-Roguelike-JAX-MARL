@@ -8,3 +8,4 @@ share/
 *.pyc
 venv/
 .DS_Store  # If you're using macOS
+wandb/
