@@ -1,0 +1,1164 @@
+Game State:
++-----------------+---------------------+---------------------+
+|    Attribute    |        Player       |        Enemy        |
++-----------------+---------------------+---------------------+
+|      Health     |        100.0        |        100.0        |
+|  Action Points  |         3.0         |         3.0         |
+| Movement Points |         10.0        |         10.0        |
+|     Location    |        (1, 3)       |       (17, 8)       |
+|     Distance    |      16.763054      |                     |
+|       Turn      |          0          |                     |
+|      Steps      |          0          |                     |
+|    Pick Mode    |         Yes         |                     |
+|  Ability Slot 0 | ID: 1 (CD: 0.0/1.0) | ID: 2 (CD: 0.0/1.0) |
+|  Ability Slot 1 |        Empty        |        Empty        |
++-----------------+---------------------+---------------------+
+Available Actions:
++-----------+----------------------------+-----------+
+| Action ID |            Name            | Available |
++-----------+----------------------------+-----------+
+|     11    | Pick Ability ID: 3 - CD:10 |     ✓     |
+|     12    | Pick Ability ID: 5 - CD:20 |     ✓     |
+|     13    | Pick Ability ID: 4 - CD:10 |     ✓     |
++-----------+----------------------------+-----------+
+Ability Pool:
++-------+------------+----------+-------------+-------------+-------------+-----------+
+| Index | Ability ID | Cooldown | Parameter 1 | Parameter 2 | Parameter 3 |   Status  |
++-------+------------+----------+-------------+-------------+-------------+-----------+
+|   0   |     3      |    10    |     0.0     |     0.0     |     0.0     | Available |
+|   1   |     5      |    20    |     5.0     |     0.0     |     0.0     | Available |
+|   2   |     4      |    10    |     5.0     |     0.0     |     0.0     | Available |
++-------+------------+----------+-------------+-------------+-------------+-----------+
+Player action: pick_ability_0
+Game State:
++-----------------+----------------------+---------------------+
+|    Attribute    |        Player        |        Enemy        |
++-----------------+----------------------+---------------------+
+|      Health     |        100.0         |        100.0        |
+|  Action Points  |         0.0          |         3.0         |
+| Movement Points |         10.0         |         10.0        |
+|     Location    |        (1, 3)        |       (17, 8)       |
+|     Distance    |      16.763054       |                     |
+|       Turn      |          1           |                     |
+|      Steps      |          1           |                     |
+|    Pick Mode    |         Yes          |                     |
+|  Ability Slot 0 | ID: 1 (CD: 0.0/1.0)  | ID: 2 (CD: 0.0/1.0) |
+|  Ability Slot 1 | ID: 4 (CD: 0.0/10.0) |        Empty        |
++-----------------+----------------------+---------------------+
+Available Actions:
++-----------+----------------------------+-----------+
+| Action ID |            Name            | Available |
++-----------+----------------------------+-----------+
+|     11    | Pick Ability ID: 3 - CD:10 |     ✓     |
+|     12    | Pick Ability ID: 5 - CD:20 |     ✓     |
+|     13    | Pick Ability ID: 4 - CD:10 |     ✗     |
++-----------+----------------------------+-----------+
+Ability Pool:
++-------+------------+----------+-------------+-------------+-------------+-----------+
+| Index | Ability ID | Cooldown | Parameter 1 | Parameter 2 | Parameter 3 |   Status  |
++-------+------------+----------+-------------+-------------+-------------+-----------+
+|   0   |     3      |    10    |     0.0     |     0.0     |     0.0     | Available |
+|   1   |     5      |    20    |     5.0     |     0.0     |     0.0     | Available |
+|   2   |     4      |    10    |     5.0     |     0.0     |     0.0     |   Picked  |
++-------+------------+----------+-------------+-------------+-------------+-----------+
+Actions this turn:
++--------+-------------------------+-----------------------------------------------------------------------------------+
+| Player |          Action         |                                       Result                                      |
++--------+-------------------------+-----------------------------------------------------------------------------------+
+| Player | pick_ability_0 (ID: 13) | HP: 100.0, AP: 0.0, MP: 10.0, Loc: (Array(1, dtype=int32), Array(3, dtype=int32)) |
++--------+-------------------------+-----------------------------------------------------------------------------------+
+/tmp/ipykernel_172248/16267480.py:67: FutureWarning: The behavior of DataFrame concatenation with empty or all-NA entries is deprecated. In a future version, this will no longer exclude empty or all-NA columns when determining the result dtypes. To retain the old behavior, exclude the relevant entries before the concat operation.
+  self.action_history = pd.concat([self.action_history, pd.DataFrame([new_row])], ignore_index=True)
+AI turn:
+- ability_0
+Game State:
++-----------------+----------------------+----------------------+
+|    Attribute    |        Player        |        Enemy         |
++-----------------+----------------------+----------------------+
+|      Health     |        100.0         |        100.0         |
+|  Action Points  |         0.0          |         0.0          |
+| Movement Points |         10.0         |         10.0         |
+|     Location    |        (1, 3)        |       (17, 8)        |
+|     Distance    |      16.763054       |                      |
+|       Turn      |          2           |                      |
+|      Steps      |          1           |                      |
+|    Pick Mode    |          No          |                      |
+|  Ability Slot 0 | ID: 1 (CD: 0.0/1.0)  | ID: 2 (CD: 0.0/1.0)  |
+|  Ability Slot 1 | ID: 4 (CD: 0.0/10.0) | ID: 3 (CD: 0.0/10.0) |
++-----------------+----------------------+----------------------+
+Available Actions:
++-----------+-----------------+-----------+
+| Action ID |       Name      | Available |
++-----------+-----------------+-----------+
+|     0     |  move left down |     ✓     |
+|     1     |    move left    |     ✓     |
+|     2     |   move left up  |     ✓     |
+|     3     |    move down    |     ✓     |
+|     4     |     move up     |     ✓     |
+|     5     | move right down |     ✓     |
+|     6     |    move right   |     ✓     |
+|     7     |  move right up  |     ✓     |
+|     8     |   melee attack  |     ✗     |
+|     9     |  ranged attack  |     ✗     |
+|     10    |     end turn    |     ✓     |
+|     11    |    ability_0    |     ✗     |
+|     12    |    ability_1    |     ✗     |
+|     13    |  pick_ability_0 |     ✗     |
+|     14    |  pick_ability_1 |     ✗     |
+|     15    |  pick_ability_2 |     ✗     |
++-----------+-----------------+-----------+
+Actions last turn:
++--------+--------------------+-----------------------------------------------------------------------------------+
+| Player |       Action       |                                       Result                                      |
++--------+--------------------+-----------------------------------------------------------------------------------+
+|   AI   | ability_0 (ID: 11) | HP: 100.0, AP: 0.0, MP: 10.0, Loc: (Array(1, dtype=int32), Array(3, dtype=int32)) |
++--------+--------------------+-----------------------------------------------------------------------------------+
+Player action: move right up
+Game State:
++-----------------+----------------------+----------------------+
+|    Attribute    |        Player        |        Enemy         |
++-----------------+----------------------+----------------------+
+|      Health     |        100.0         |        100.0         |
+|  Action Points  |         0.0          |         0.0          |
+| Movement Points |       8.585787       |         10.0         |
+|     Location    |        (2, 4)        |       (17, 8)        |
+|     Distance    |      15.524175       |                      |
+|       Turn      |          2           |                      |
+|      Steps      |          2           |                      |
+|    Pick Mode    |          No          |                      |
+|  Ability Slot 0 | ID: 1 (CD: 0.0/1.0)  | ID: 2 (CD: 0.0/1.0)  |
+|  Ability Slot 1 | ID: 4 (CD: 0.0/10.0) | ID: 3 (CD: 0.0/10.0) |
++-----------------+----------------------+----------------------+
+Available Actions:
++-----------+-----------------+-----------+
+| Action ID |       Name      | Available |
++-----------+-----------------+-----------+
+|     0     |  move left down |     ✓     |
+|     1     |    move left    |     ✓     |
+|     2     |   move left up  |     ✓     |
+|     3     |    move down    |     ✓     |
+|     4     |     move up     |     ✓     |
+|     5     | move right down |     ✓     |
+|     6     |    move right   |     ✓     |
+|     7     |  move right up  |     ✓     |
+|     8     |   melee attack  |     ✗     |
+|     9     |  ranged attack  |     ✗     |
+|     10    |     end turn    |     ✓     |
+|     11    |    ability_0    |     ✗     |
+|     12    |    ability_1    |     ✗     |
+|     13    |  pick_ability_0 |     ✗     |
+|     14    |  pick_ability_1 |     ✗     |
+|     15    |  pick_ability_2 |     ✗     |
++-----------+-----------------+-----------+
+Actions this turn:
++--------+-----------------------+-----------------------------------------------------------------------------------+
+| Player |         Action        |                                       Result                                      |
++--------+-----------------------+-----------------------------------------------------------------------------------+
+|   AI   |   ability_0 (ID: 11)  | HP: 100.0, AP: 0.0, MP: 10.0, Loc: (Array(1, dtype=int32), Array(3, dtype=int32)) |
+| Player | move right up (ID: 7) |  HP: 100.0, AP: 0.0, MP: 8.6, Loc: (Array(2, dtype=int32), Array(4, dtype=int32)) |
++--------+-----------------------+-----------------------------------------------------------------------------------+
+Player action: move right up
+Game State:
++-----------------+----------------------+----------------------+
+|    Attribute    |        Player        |        Enemy         |
++-----------------+----------------------+----------------------+
+|      Health     |        100.0         |        100.0         |
+|  Action Points  |         0.0          |         0.0          |
+| Movement Points |       7.171573       |         10.0         |
+|     Location    |        (3, 5)        |       (17, 8)        |
+|     Distance    |      14.317821       |                      |
+|       Turn      |          2           |                      |
+|      Steps      |          3           |                      |
+|    Pick Mode    |          No          |                      |
+|  Ability Slot 0 | ID: 1 (CD: 0.0/1.0)  | ID: 2 (CD: 0.0/1.0)  |
+|  Ability Slot 1 | ID: 4 (CD: 0.0/10.0) | ID: 3 (CD: 0.0/10.0) |
++-----------------+----------------------+----------------------+
+Available Actions:
++-----------+-----------------+-----------+
+| Action ID |       Name      | Available |
++-----------+-----------------+-----------+
+|     0     |  move left down |     ✓     |
+|     1     |    move left    |     ✓     |
+|     2     |   move left up  |     ✓     |
+|     3     |    move down    |     ✓     |
+|     4     |     move up     |     ✓     |
+|     5     | move right down |     ✓     |
+|     6     |    move right   |     ✓     |
+|     7     |  move right up  |     ✓     |
+|     8     |   melee attack  |     ✗     |
+|     9     |  ranged attack  |     ✗     |
+|     10    |     end turn    |     ✓     |
+|     11    |    ability_0    |     ✗     |
+|     12    |    ability_1    |     ✗     |
+|     13    |  pick_ability_0 |     ✗     |
+|     14    |  pick_ability_1 |     ✗     |
+|     15    |  pick_ability_2 |     ✗     |
++-----------+-----------------+-----------+
+Actions this turn:
++--------+-----------------------+-----------------------------------------------------------------------------------+
+| Player |         Action        |                                       Result                                      |
++--------+-----------------------+-----------------------------------------------------------------------------------+
+|   AI   |   ability_0 (ID: 11)  | HP: 100.0, AP: 0.0, MP: 10.0, Loc: (Array(1, dtype=int32), Array(3, dtype=int32)) |
+| Player | move right up (ID: 7) |  HP: 100.0, AP: 0.0, MP: 8.6, Loc: (Array(2, dtype=int32), Array(4, dtype=int32)) |
+| Player | move right up (ID: 7) |  HP: 100.0, AP: 0.0, MP: 7.2, Loc: (Array(3, dtype=int32), Array(5, dtype=int32)) |
++--------+-----------------------+-----------------------------------------------------------------------------------+
+Player action: move right up
+Game State:
++-----------------+----------------------+----------------------+
+|    Attribute    |        Player        |        Enemy         |
++-----------------+----------------------+----------------------+
+|      Health     |        100.0         |        100.0         |
+|  Action Points  |         0.0          |         0.0          |
+| Movement Points |      5.7573595       |         10.0         |
+|     Location    |        (4, 6)        |       (17, 8)        |
+|     Distance    |      13.152946       |                      |
+|       Turn      |          2           |                      |
+|      Steps      |          4           |                      |
+|    Pick Mode    |          No          |                      |
+|  Ability Slot 0 | ID: 1 (CD: 0.0/1.0)  | ID: 2 (CD: 0.0/1.0)  |
+|  Ability Slot 1 | ID: 4 (CD: 0.0/10.0) | ID: 3 (CD: 0.0/10.0) |
++-----------------+----------------------+----------------------+
+Available Actions:
++-----------+-----------------+-----------+
+| Action ID |       Name      | Available |
++-----------+-----------------+-----------+
+|     0     |  move left down |     ✓     |
+|     1     |    move left    |     ✓     |
+|     2     |   move left up  |     ✓     |
+|     3     |    move down    |     ✓     |
+|     4     |     move up     |     ✓     |
+|     5     | move right down |     ✓     |
+|     6     |    move right   |     ✓     |
+|     7     |  move right up  |     ✓     |
+|     8     |   melee attack  |     ✗     |
+|     9     |  ranged attack  |     ✗     |
+|     10    |     end turn    |     ✓     |
+|     11    |    ability_0    |     ✗     |
+|     12    |    ability_1    |     ✗     |
+|     13    |  pick_ability_0 |     ✗     |
+|     14    |  pick_ability_1 |     ✗     |
+|     15    |  pick_ability_2 |     ✗     |
++-----------+-----------------+-----------+
+Actions this turn:
++--------+-----------------------+-----------------------------------------------------------------------------------+
+| Player |         Action        |                                       Result                                      |
++--------+-----------------------+-----------------------------------------------------------------------------------+
+|   AI   |   ability_0 (ID: 11)  | HP: 100.0, AP: 0.0, MP: 10.0, Loc: (Array(1, dtype=int32), Array(3, dtype=int32)) |
+| Player | move right up (ID: 7) |  HP: 100.0, AP: 0.0, MP: 8.6, Loc: (Array(2, dtype=int32), Array(4, dtype=int32)) |
+| Player | move right up (ID: 7) |  HP: 100.0, AP: 0.0, MP: 7.2, Loc: (Array(3, dtype=int32), Array(5, dtype=int32)) |
+| Player | move right up (ID: 7) |  HP: 100.0, AP: 0.0, MP: 5.8, Loc: (Array(4, dtype=int32), Array(6, dtype=int32)) |
++--------+-----------------------+-----------------------------------------------------------------------------------+
+Player action: move right up
+Game State:
++-----------------+----------------------+----------------------+
+|    Attribute    |        Player        |        Enemy         |
++-----------------+----------------------+----------------------+
+|      Health     |        100.0         |        100.0         |
+|  Action Points  |         0.0          |         0.0          |
+| Movement Points |       4.343146       |         10.0         |
+|     Location    |        (5, 7)        |       (17, 8)        |
+|     Distance    |      12.0415945      |                      |
+|       Turn      |          2           |                      |
+|      Steps      |          5           |                      |
+|    Pick Mode    |          No          |                      |
+|  Ability Slot 0 | ID: 1 (CD: 0.0/1.0)  | ID: 2 (CD: 0.0/1.0)  |
+|  Ability Slot 1 | ID: 4 (CD: 0.0/10.0) | ID: 3 (CD: 0.0/10.0) |
++-----------------+----------------------+----------------------+
+Available Actions:
++-----------+-----------------+-----------+
+| Action ID |       Name      | Available |
++-----------+-----------------+-----------+
+|     0     |  move left down |     ✓     |
+|     1     |    move left    |     ✓     |
+|     2     |   move left up  |     ✓     |
+|     3     |    move down    |     ✓     |
+|     4     |     move up     |     ✓     |
+|     5     | move right down |     ✓     |
+|     6     |    move right   |     ✓     |
+|     7     |  move right up  |     ✓     |
+|     8     |   melee attack  |     ✗     |
+|     9     |  ranged attack  |     ✗     |
+|     10    |     end turn    |     ✓     |
+|     11    |    ability_0    |     ✗     |
+|     12    |    ability_1    |     ✗     |
+|     13    |  pick_ability_0 |     ✗     |
+|     14    |  pick_ability_1 |     ✗     |
+|     15    |  pick_ability_2 |     ✗     |
++-----------+-----------------+-----------+
+Actions this turn:
++--------+-----------------------+-----------------------------------------------------------------------------------+
+| Player |         Action        |                                       Result                                      |
++--------+-----------------------+-----------------------------------------------------------------------------------+
+|   AI   |   ability_0 (ID: 11)  | HP: 100.0, AP: 0.0, MP: 10.0, Loc: (Array(1, dtype=int32), Array(3, dtype=int32)) |
+| Player | move right up (ID: 7) |  HP: 100.0, AP: 0.0, MP: 8.6, Loc: (Array(2, dtype=int32), Array(4, dtype=int32)) |
+| Player | move right up (ID: 7) |  HP: 100.0, AP: 0.0, MP: 7.2, Loc: (Array(3, dtype=int32), Array(5, dtype=int32)) |
+| Player | move right up (ID: 7) |  HP: 100.0, AP: 0.0, MP: 5.8, Loc: (Array(4, dtype=int32), Array(6, dtype=int32)) |
+| Player | move right up (ID: 7) |  HP: 100.0, AP: 0.0, MP: 4.3, Loc: (Array(5, dtype=int32), Array(7, dtype=int32)) |
++--------+-----------------------+-----------------------------------------------------------------------------------+
+Player action: move right up
+Game State:
++-----------------+----------------------+----------------------+
+|    Attribute    |        Player        |        Enemy         |
++-----------------+----------------------+----------------------+
+|      Health     |        100.0         |        100.0         |
+|  Action Points  |         0.0          |         0.0          |
+| Movement Points |      2.9289322       |         10.0         |
+|     Location    |        (6, 8)        |       (17, 8)        |
+|     Distance    |         11.0         |                      |
+|       Turn      |          2           |                      |
+|      Steps      |          6           |                      |
+|    Pick Mode    |          No          |                      |
+|  Ability Slot 0 | ID: 1 (CD: 0.0/1.0)  | ID: 2 (CD: 0.0/1.0)  |
+|  Ability Slot 1 | ID: 4 (CD: 0.0/10.0) | ID: 3 (CD: 0.0/10.0) |
++-----------------+----------------------+----------------------+
+Available Actions:
++-----------+-----------------+-----------+
+| Action ID |       Name      | Available |
++-----------+-----------------+-----------+
+|     0     |  move left down |     ✓     |
+|     1     |    move left    |     ✓     |
+|     2     |   move left up  |     ✓     |
+|     3     |    move down    |     ✓     |
+|     4     |     move up     |     ✓     |
+|     5     | move right down |     ✓     |
+|     6     |    move right   |     ✓     |
+|     7     |  move right up  |     ✓     |
+|     8     |   melee attack  |     ✗     |
+|     9     |  ranged attack  |     ✗     |
+|     10    |     end turn    |     ✓     |
+|     11    |    ability_0    |     ✗     |
+|     12    |    ability_1    |     ✗     |
+|     13    |  pick_ability_0 |     ✗     |
+|     14    |  pick_ability_1 |     ✗     |
+|     15    |  pick_ability_2 |     ✗     |
++-----------+-----------------+-----------+
+Actions this turn:
++--------+-----------------------+-----------------------------------------------------------------------------------+
+| Player |         Action        |                                       Result                                      |
++--------+-----------------------+-----------------------------------------------------------------------------------+
+|   AI   |   ability_0 (ID: 11)  | HP: 100.0, AP: 0.0, MP: 10.0, Loc: (Array(1, dtype=int32), Array(3, dtype=int32)) |
+| Player | move right up (ID: 7) |  HP: 100.0, AP: 0.0, MP: 8.6, Loc: (Array(2, dtype=int32), Array(4, dtype=int32)) |
+| Player | move right up (ID: 7) |  HP: 100.0, AP: 0.0, MP: 7.2, Loc: (Array(3, dtype=int32), Array(5, dtype=int32)) |
+| Player | move right up (ID: 7) |  HP: 100.0, AP: 0.0, MP: 5.8, Loc: (Array(4, dtype=int32), Array(6, dtype=int32)) |
+| Player | move right up (ID: 7) |  HP: 100.0, AP: 0.0, MP: 4.3, Loc: (Array(5, dtype=int32), Array(7, dtype=int32)) |
+| Player | move right up (ID: 7) |  HP: 100.0, AP: 0.0, MP: 2.9, Loc: (Array(6, dtype=int32), Array(8, dtype=int32)) |
++--------+-----------------------+-----------------------------------------------------------------------------------+
+Player action: move right
+Game State:
++-----------------+----------------------+----------------------+
+|    Attribute    |        Player        |        Enemy         |
++-----------------+----------------------+----------------------+
+|      Health     |        100.0         |        100.0         |
+|  Action Points  |         0.0          |         0.0          |
+| Movement Points |      1.9289322       |         10.0         |
+|     Location    |        (7, 8)        |       (17, 8)        |
+|     Distance    |         10.0         |                      |
+|       Turn      |          2           |                      |
+|      Steps      |          7           |                      |
+|    Pick Mode    |          No          |                      |
+|  Ability Slot 0 | ID: 1 (CD: 0.0/1.0)  | ID: 2 (CD: 0.0/1.0)  |
+|  Ability Slot 1 | ID: 4 (CD: 0.0/10.0) | ID: 3 (CD: 0.0/10.0) |
++-----------------+----------------------+----------------------+
+Available Actions:
++-----------+-----------------+-----------+
+| Action ID |       Name      | Available |
++-----------+-----------------+-----------+
+|     0     |  move left down |     ✓     |
+|     1     |    move left    |     ✓     |
+|     2     |   move left up  |     ✓     |
+|     3     |    move down    |     ✓     |
+|     4     |     move up     |     ✓     |
+|     5     | move right down |     ✓     |
+|     6     |    move right   |     ✓     |
+|     7     |  move right up  |     ✓     |
+|     8     |   melee attack  |     ✗     |
+|     9     |  ranged attack  |     ✗     |
+|     10    |     end turn    |     ✓     |
+|     11    |    ability_0    |     ✗     |
+|     12    |    ability_1    |     ✗     |
+|     13    |  pick_ability_0 |     ✗     |
+|     14    |  pick_ability_1 |     ✗     |
+|     15    |  pick_ability_2 |     ✗     |
++-----------+-----------------+-----------+
+Actions this turn:
++--------+-----------------------+-----------------------------------------------------------------------------------+
+| Player |         Action        |                                       Result                                      |
++--------+-----------------------+-----------------------------------------------------------------------------------+
+|   AI   |   ability_0 (ID: 11)  | HP: 100.0, AP: 0.0, MP: 10.0, Loc: (Array(1, dtype=int32), Array(3, dtype=int32)) |
+| Player | move right up (ID: 7) |  HP: 100.0, AP: 0.0, MP: 8.6, Loc: (Array(2, dtype=int32), Array(4, dtype=int32)) |
+| Player | move right up (ID: 7) |  HP: 100.0, AP: 0.0, MP: 7.2, Loc: (Array(3, dtype=int32), Array(5, dtype=int32)) |
+| Player | move right up (ID: 7) |  HP: 100.0, AP: 0.0, MP: 5.8, Loc: (Array(4, dtype=int32), Array(6, dtype=int32)) |
+| Player | move right up (ID: 7) |  HP: 100.0, AP: 0.0, MP: 4.3, Loc: (Array(5, dtype=int32), Array(7, dtype=int32)) |
+| Player | move right up (ID: 7) |  HP: 100.0, AP: 0.0, MP: 2.9, Loc: (Array(6, dtype=int32), Array(8, dtype=int32)) |
+| Player |   move right (ID: 6)  |  HP: 100.0, AP: 0.0, MP: 1.9, Loc: (Array(7, dtype=int32), Array(8, dtype=int32)) |
++--------+-----------------------+-----------------------------------------------------------------------------------+
+Player action: move right
+Game State:
++-----------------+----------------------+----------------------+
+|    Attribute    |        Player        |        Enemy         |
++-----------------+----------------------+----------------------+
+|      Health     |        100.0         |        100.0         |
+|  Action Points  |         0.0          |         0.0          |
+| Movement Points |      0.9289322       |         10.0         |
+|     Location    |        (8, 8)        |       (17, 8)        |
+|     Distance    |         9.0          |                      |
+|       Turn      |          2           |                      |
+|      Steps      |          8           |                      |
+|    Pick Mode    |          No          |                      |
+|  Ability Slot 0 | ID: 1 (CD: 0.0/1.0)  | ID: 2 (CD: 0.0/1.0)  |
+|  Ability Slot 1 | ID: 4 (CD: 0.0/10.0) | ID: 3 (CD: 0.0/10.0) |
++-----------------+----------------------+----------------------+
+Available Actions:
++-----------+-----------------+-----------+
+| Action ID |       Name      | Available |
++-----------+-----------------+-----------+
+|     0     |  move left down |     ✗     |
+|     1     |    move left    |     ✗     |
+|     2     |   move left up  |     ✗     |
+|     3     |    move down    |     ✗     |
+|     4     |     move up     |     ✗     |
+|     5     | move right down |     ✗     |
+|     6     |    move right   |     ✗     |
+|     7     |  move right up  |     ✗     |
+|     8     |   melee attack  |     ✗     |
+|     9     |  ranged attack  |     ✗     |
+|     10    |     end turn    |     ✓     |
+|     11    |    ability_0    |     ✗     |
+|     12    |    ability_1    |     ✗     |
+|     13    |  pick_ability_0 |     ✗     |
+|     14    |  pick_ability_1 |     ✗     |
+|     15    |  pick_ability_2 |     ✗     |
++-----------+-----------------+-----------+
+Actions this turn:
++--------+-----------------------+-----------------------------------------------------------------------------------+
+| Player |         Action        |                                       Result                                      |
++--------+-----------------------+-----------------------------------------------------------------------------------+
+|   AI   |   ability_0 (ID: 11)  | HP: 100.0, AP: 0.0, MP: 10.0, Loc: (Array(1, dtype=int32), Array(3, dtype=int32)) |
+| Player | move right up (ID: 7) |  HP: 100.0, AP: 0.0, MP: 8.6, Loc: (Array(2, dtype=int32), Array(4, dtype=int32)) |
+| Player | move right up (ID: 7) |  HP: 100.0, AP: 0.0, MP: 7.2, Loc: (Array(3, dtype=int32), Array(5, dtype=int32)) |
+| Player | move right up (ID: 7) |  HP: 100.0, AP: 0.0, MP: 5.8, Loc: (Array(4, dtype=int32), Array(6, dtype=int32)) |
+| Player | move right up (ID: 7) |  HP: 100.0, AP: 0.0, MP: 4.3, Loc: (Array(5, dtype=int32), Array(7, dtype=int32)) |
+| Player | move right up (ID: 7) |  HP: 100.0, AP: 0.0, MP: 2.9, Loc: (Array(6, dtype=int32), Array(8, dtype=int32)) |
+| Player |   move right (ID: 6)  |  HP: 100.0, AP: 0.0, MP: 1.9, Loc: (Array(7, dtype=int32), Array(8, dtype=int32)) |
+| Player |   move right (ID: 6)  |  HP: 100.0, AP: 0.0, MP: 0.9, Loc: (Array(8, dtype=int32), Array(8, dtype=int32)) |
++--------+-----------------------+-----------------------------------------------------------------------------------+
+Player action: end turn
+Game State:
++-----------------+----------------------+----------------------+
+|    Attribute    |        Player        |        Enemy         |
++-----------------+----------------------+----------------------+
+|      Health     |        100.0         |        100.0         |
+|  Action Points  |         5.0          |         0.0          |
+| Movement Points |         10.0         |         10.0         |
+|     Location    |        (8, 8)        |       (17, 8)        |
+|     Distance    |         9.0          |                      |
+|       Turn      |          3           |                      |
+|      Steps      |          9           |                      |
+|    Pick Mode    |          No          |                      |
+|  Ability Slot 0 | ID: 1 (CD: 0.0/1.0)  | ID: 2 (CD: 0.0/1.0)  |
+|  Ability Slot 1 | ID: 4 (CD: 0.0/10.0) | ID: 3 (CD: 0.0/10.0) |
++-----------------+----------------------+----------------------+
+Available Actions:
++-----------+-----------------+-----------+
+| Action ID |       Name      | Available |
++-----------+-----------------+-----------+
+|     0     |  move left down |     ✓     |
+|     1     |    move left    |     ✓     |
+|     2     |   move left up  |     ✓     |
+|     3     |    move down    |     ✓     |
+|     4     |     move up     |     ✓     |
+|     5     | move right down |     ✓     |
+|     6     |    move right   |     ✓     |
+|     7     |  move right up  |     ✓     |
+|     8     |   melee attack  |     ✗     |
+|     9     |  ranged attack  |     ✗     |
+|     10    |     end turn    |     ✓     |
+|     11    |    ability_0    |     ✗     |
+|     12    |    ability_1    |     ✗     |
+|     13    |  pick_ability_0 |     ✗     |
+|     14    |  pick_ability_1 |     ✓     |
+|     15    |  pick_ability_2 |     ✓     |
++-----------+-----------------+-----------+
+Actions this turn:
++--------+-------------------+-----------------------------------------------------------------------------------+
+| Player |       Action      |                                       Result                                      |
++--------+-------------------+-----------------------------------------------------------------------------------+
+| Player | end turn (ID: 10) | HP: 100.0, AP: 5.0, MP: 10.0, Loc: (Array(8, dtype=int32), Array(8, dtype=int32)) |
++--------+-------------------+-----------------------------------------------------------------------------------+
+AI turn:
+- move left up
+- move left up
+- move left up
+- move left up
+- move left up
+- move left up
+- move left up
+- end turn
+Game State:
++-----------------+----------------------+----------------------+
+|    Attribute    |        Player        |        Enemy         |
++-----------------+----------------------+----------------------+
+|      Health     |        100.0         |        100.0         |
+|  Action Points  |         5.0          |         5.0          |
+| Movement Points |         10.0         |         10.0         |
+|     Location    |        (8, 8)        |       (10, 15)       |
+|     Distance    |       7.28011        |                      |
+|       Turn      |          4           |                      |
+|      Steps      |          9           |                      |
+|    Pick Mode    |          No          |                      |
+|  Ability Slot 0 | ID: 1 (CD: 0.0/1.0)  | ID: 2 (CD: 0.0/1.0)  |
+|  Ability Slot 1 | ID: 4 (CD: 0.0/10.0) | ID: 3 (CD: 0.0/10.0) |
++-----------------+----------------------+----------------------+
+Available Actions:
++-----------+-----------------+-----------+
+| Action ID |       Name      | Available |
++-----------+-----------------+-----------+
+|     0     |  move left down |     ✓     |
+|     1     |    move left    |     ✓     |
+|     2     |   move left up  |     ✓     |
+|     3     |    move down    |     ✓     |
+|     4     |     move up     |     ✓     |
+|     5     | move right down |     ✓     |
+|     6     |    move right   |     ✓     |
+|     7     |  move right up  |     ✓     |
+|     8     |   melee attack  |     ✗     |
+|     9     |  ranged attack  |     ✗     |
+|     10    |     end turn    |     ✓     |
+|     11    |    ability_0    |     ✗     |
+|     12    |    ability_1    |     ✗     |
+|     13    |  pick_ability_0 |     ✗     |
+|     14    |  pick_ability_1 |     ✓     |
+|     15    |  pick_ability_2 |     ✓     |
++-----------+-----------------+-----------+
+Actions last turn:
++--------+-------------------+-----------------------------------------------------------------------------------+
+| Player |       Action      |                                       Result                                      |
++--------+-------------------+-----------------------------------------------------------------------------------+
+|   AI   | end turn (ID: 10) | HP: 100.0, AP: 5.0, MP: 10.0, Loc: (Array(8, dtype=int32), Array(8, dtype=int32)) |
++--------+-------------------+-----------------------------------------------------------------------------------+
+Player action: move right up
+Game State:
++-----------------+----------------------+----------------------+
+|    Attribute    |        Player        |        Enemy         |
++-----------------+----------------------+----------------------+
+|      Health     |        100.0         |        100.0         |
+|  Action Points  |         5.0          |         5.0          |
+| Movement Points |       8.585787       |         10.0         |
+|     Location    |        (9, 9)        |       (10, 15)       |
+|     Distance    |      6.0827622       |                      |
+|       Turn      |          4           |                      |
+|      Steps      |          10          |                      |
+|    Pick Mode    |          No          |                      |
+|  Ability Slot 0 | ID: 1 (CD: 0.0/1.0)  | ID: 2 (CD: 0.0/1.0)  |
+|  Ability Slot 1 | ID: 4 (CD: 0.0/10.0) | ID: 3 (CD: 0.0/10.0) |
++-----------------+----------------------+----------------------+
+Available Actions:
++-----------+-----------------+-----------+
+| Action ID |       Name      | Available |
++-----------+-----------------+-----------+
+|     0     |  move left down |     ✓     |
+|     1     |    move left    |     ✓     |
+|     2     |   move left up  |     ✓     |
+|     3     |    move down    |     ✓     |
+|     4     |     move up     |     ✓     |
+|     5     | move right down |     ✓     |
+|     6     |    move right   |     ✓     |
+|     7     |  move right up  |     ✓     |
+|     8     |   melee attack  |     ✗     |
+|     9     |  ranged attack  |     ✗     |
+|     10    |     end turn    |     ✓     |
+|     11    |    ability_0    |     ✗     |
+|     12    |    ability_1    |     ✗     |
+|     13    |  pick_ability_0 |     ✗     |
+|     14    |  pick_ability_1 |     ✓     |
+|     15    |  pick_ability_2 |     ✓     |
++-----------+-----------------+-----------+
+Actions this turn:
++--------+-----------------------+-----------------------------------------------------------------------------------+
+| Player |         Action        |                                       Result                                      |
++--------+-----------------------+-----------------------------------------------------------------------------------+
+|   AI   |   end turn (ID: 10)   | HP: 100.0, AP: 5.0, MP: 10.0, Loc: (Array(8, dtype=int32), Array(8, dtype=int32)) |
+| Player | move right up (ID: 7) |  HP: 100.0, AP: 5.0, MP: 8.6, Loc: (Array(9, dtype=int32), Array(9, dtype=int32)) |
++--------+-----------------------+-----------------------------------------------------------------------------------+
+Player action: move right up
+Game State:
++-----------------+----------------------+----------------------+
+|    Attribute    |        Player        |        Enemy         |
++-----------------+----------------------+----------------------+
+|      Health     |        100.0         |        100.0         |
+|  Action Points  |         5.0          |         5.0          |
+| Movement Points |       7.171573       |         10.0         |
+|     Location    |       (10, 10)       |       (10, 15)       |
+|     Distance    |         5.0          |                      |
+|       Turn      |          4           |                      |
+|      Steps      |          11          |                      |
+|    Pick Mode    |          No          |                      |
+|  Ability Slot 0 | ID: 1 (CD: 0.0/1.0)  | ID: 2 (CD: 0.0/1.0)  |
+|  Ability Slot 1 | ID: 4 (CD: 0.0/10.0) | ID: 3 (CD: 0.0/10.0) |
++-----------------+----------------------+----------------------+
+Available Actions:
++-----------+-----------------+-----------+
+| Action ID |       Name      | Available |
++-----------+-----------------+-----------+
+|     0     |  move left down |     ✓     |
+|     1     |    move left    |     ✓     |
+|     2     |   move left up  |     ✓     |
+|     3     |    move down    |     ✓     |
+|     4     |     move up     |     ✓     |
+|     5     | move right down |     ✓     |
+|     6     |    move right   |     ✓     |
+|     7     |  move right up  |     ✓     |
+|     8     |   melee attack  |     ✗     |
+|     9     |  ranged attack  |     ✓     |
+|     10    |     end turn    |     ✓     |
+|     11    |    ability_0    |     ✗     |
+|     12    |    ability_1    |     ✗     |
+|     13    |  pick_ability_0 |     ✗     |
+|     14    |  pick_ability_1 |     ✓     |
+|     15    |  pick_ability_2 |     ✓     |
++-----------+-----------------+-----------+
+Actions this turn:
++--------+-----------------------+------------------------------------------------------------------------------------+
+| Player |         Action        |                                       Result                                       |
++--------+-----------------------+------------------------------------------------------------------------------------+
+|   AI   |   end turn (ID: 10)   | HP: 100.0, AP: 5.0, MP: 10.0, Loc: (Array(8, dtype=int32), Array(8, dtype=int32))  |
+| Player | move right up (ID: 7) |  HP: 100.0, AP: 5.0, MP: 8.6, Loc: (Array(9, dtype=int32), Array(9, dtype=int32))  |
+| Player | move right up (ID: 7) | HP: 100.0, AP: 5.0, MP: 7.2, Loc: (Array(10, dtype=int32), Array(10, dtype=int32)) |
++--------+-----------------------+------------------------------------------------------------------------------------+
+Player action: move up
+Game State:
++-----------------+----------------------+----------------------+
+|    Attribute    |        Player        |        Enemy         |
++-----------------+----------------------+----------------------+
+|      Health     |        100.0         |        100.0         |
+|  Action Points  |         5.0          |         5.0          |
+| Movement Points |       6.171573       |         10.0         |
+|     Location    |       (10, 11)       |       (10, 15)       |
+|     Distance    |         4.0          |                      |
+|       Turn      |          4           |                      |
+|      Steps      |          12          |                      |
+|    Pick Mode    |          No          |                      |
+|  Ability Slot 0 | ID: 1 (CD: 0.0/1.0)  | ID: 2 (CD: 0.0/1.0)  |
+|  Ability Slot 1 | ID: 4 (CD: 0.0/10.0) | ID: 3 (CD: 0.0/10.0) |
++-----------------+----------------------+----------------------+
+Available Actions:
++-----------+-----------------+-----------+
+| Action ID |       Name      | Available |
++-----------+-----------------+-----------+
+|     0     |  move left down |     ✓     |
+|     1     |    move left    |     ✓     |
+|     2     |   move left up  |     ✓     |
+|     3     |    move down    |     ✓     |
+|     4     |     move up     |     ✓     |
+|     5     | move right down |     ✓     |
+|     6     |    move right   |     ✓     |
+|     7     |  move right up  |     ✓     |
+|     8     |   melee attack  |     ✗     |
+|     9     |  ranged attack  |     ✓     |
+|     10    |     end turn    |     ✓     |
+|     11    |    ability_0    |     ✗     |
+|     12    |    ability_1    |     ✗     |
+|     13    |  pick_ability_0 |     ✗     |
+|     14    |  pick_ability_1 |     ✓     |
+|     15    |  pick_ability_2 |     ✓     |
++-----------+-----------------+-----------+
+Actions this turn:
++--------+-----------------------+------------------------------------------------------------------------------------+
+| Player |         Action        |                                       Result                                       |
++--------+-----------------------+------------------------------------------------------------------------------------+
+|   AI   |   end turn (ID: 10)   | HP: 100.0, AP: 5.0, MP: 10.0, Loc: (Array(8, dtype=int32), Array(8, dtype=int32))  |
+| Player | move right up (ID: 7) |  HP: 100.0, AP: 5.0, MP: 8.6, Loc: (Array(9, dtype=int32), Array(9, dtype=int32))  |
+| Player | move right up (ID: 7) | HP: 100.0, AP: 5.0, MP: 7.2, Loc: (Array(10, dtype=int32), Array(10, dtype=int32)) |
+| Player |    move up (ID: 4)    | HP: 100.0, AP: 5.0, MP: 6.2, Loc: (Array(10, dtype=int32), Array(11, dtype=int32)) |
++--------+-----------------------+------------------------------------------------------------------------------------+
+Player action: move up
+Game State:
++-----------------+----------------------+----------------------+
+|    Attribute    |        Player        |        Enemy         |
++-----------------+----------------------+----------------------+
+|      Health     |        100.0         |        100.0         |
+|  Action Points  |         5.0          |         5.0          |
+| Movement Points |       5.171573       |         10.0         |
+|     Location    |       (10, 12)       |       (10, 15)       |
+|     Distance    |         3.0          |                      |
+|       Turn      |          4           |                      |
+|      Steps      |          13          |                      |
+|    Pick Mode    |          No          |                      |
+|  Ability Slot 0 | ID: 1 (CD: 0.0/1.0)  | ID: 2 (CD: 0.0/1.0)  |
+|  Ability Slot 1 | ID: 4 (CD: 0.0/10.0) | ID: 3 (CD: 0.0/10.0) |
++-----------------+----------------------+----------------------+
+Available Actions:
++-----------+-----------------+-----------+
+| Action ID |       Name      | Available |
++-----------+-----------------+-----------+
+|     0     |  move left down |     ✓     |
+|     1     |    move left    |     ✓     |
+|     2     |   move left up  |     ✓     |
+|     3     |    move down    |     ✓     |
+|     4     |     move up     |     ✓     |
+|     5     | move right down |     ✓     |
+|     6     |    move right   |     ✓     |
+|     7     |  move right up  |     ✓     |
+|     8     |   melee attack  |     ✗     |
+|     9     |  ranged attack  |     ✓     |
+|     10    |     end turn    |     ✓     |
+|     11    |    ability_0    |     ✗     |
+|     12    |    ability_1    |     ✗     |
+|     13    |  pick_ability_0 |     ✗     |
+|     14    |  pick_ability_1 |     ✓     |
+|     15    |  pick_ability_2 |     ✓     |
++-----------+-----------------+-----------+
+Actions this turn:
++--------+-----------------------+------------------------------------------------------------------------------------+
+| Player |         Action        |                                       Result                                       |
++--------+-----------------------+------------------------------------------------------------------------------------+
+|   AI   |   end turn (ID: 10)   | HP: 100.0, AP: 5.0, MP: 10.0, Loc: (Array(8, dtype=int32), Array(8, dtype=int32))  |
+| Player | move right up (ID: 7) |  HP: 100.0, AP: 5.0, MP: 8.6, Loc: (Array(9, dtype=int32), Array(9, dtype=int32))  |
+| Player | move right up (ID: 7) | HP: 100.0, AP: 5.0, MP: 7.2, Loc: (Array(10, dtype=int32), Array(10, dtype=int32)) |
+| Player |    move up (ID: 4)    | HP: 100.0, AP: 5.0, MP: 6.2, Loc: (Array(10, dtype=int32), Array(11, dtype=int32)) |
+| Player |    move up (ID: 4)    | HP: 100.0, AP: 5.0, MP: 5.2, Loc: (Array(10, dtype=int32), Array(12, dtype=int32)) |
++--------+-----------------------+------------------------------------------------------------------------------------+
+Player action: move up
+Game State:
++-----------------+----------------------+----------------------+
+|    Attribute    |        Player        |        Enemy         |
++-----------------+----------------------+----------------------+
+|      Health     |        100.0         |        100.0         |
+|  Action Points  |         5.0          |         5.0          |
+| Movement Points |       4.171573       |         10.0         |
+|     Location    |       (10, 13)       |       (10, 15)       |
+|     Distance    |         2.0          |                      |
+|       Turn      |          4           |                      |
+|      Steps      |          14          |                      |
+|    Pick Mode    |          No          |                      |
+|  Ability Slot 0 | ID: 1 (CD: 0.0/1.0)  | ID: 2 (CD: 0.0/1.0)  |
+|  Ability Slot 1 | ID: 4 (CD: 0.0/10.0) | ID: 3 (CD: 0.0/10.0) |
++-----------------+----------------------+----------------------+
+Available Actions:
++-----------+-----------------+-----------+
+| Action ID |       Name      | Available |
++-----------+-----------------+-----------+
+|     0     |  move left down |     ✓     |
+|     1     |    move left    |     ✓     |
+|     2     |   move left up  |     ✓     |
+|     3     |    move down    |     ✓     |
+|     4     |     move up     |     ✓     |
+|     5     | move right down |     ✓     |
+|     6     |    move right   |     ✓     |
+|     7     |  move right up  |     ✓     |
+|     8     |   melee attack  |     ✓     |
+|     9     |  ranged attack  |     ✓     |
+|     10    |     end turn    |     ✓     |
+|     11    |    ability_0    |     ✗     |
+|     12    |    ability_1    |     ✗     |
+|     13    |  pick_ability_0 |     ✗     |
+|     14    |  pick_ability_1 |     ✓     |
+|     15    |  pick_ability_2 |     ✓     |
++-----------+-----------------+-----------+
+Actions this turn:
++--------+-----------------------+------------------------------------------------------------------------------------+
+| Player |         Action        |                                       Result                                       |
++--------+-----------------------+------------------------------------------------------------------------------------+
+|   AI   |   end turn (ID: 10)   | HP: 100.0, AP: 5.0, MP: 10.0, Loc: (Array(8, dtype=int32), Array(8, dtype=int32))  |
+| Player | move right up (ID: 7) |  HP: 100.0, AP: 5.0, MP: 8.6, Loc: (Array(9, dtype=int32), Array(9, dtype=int32))  |
+| Player | move right up (ID: 7) | HP: 100.0, AP: 5.0, MP: 7.2, Loc: (Array(10, dtype=int32), Array(10, dtype=int32)) |
+| Player |    move up (ID: 4)    | HP: 100.0, AP: 5.0, MP: 6.2, Loc: (Array(10, dtype=int32), Array(11, dtype=int32)) |
+| Player |    move up (ID: 4)    | HP: 100.0, AP: 5.0, MP: 5.2, Loc: (Array(10, dtype=int32), Array(12, dtype=int32)) |
+| Player |    move up (ID: 4)    | HP: 100.0, AP: 5.0, MP: 4.2, Loc: (Array(10, dtype=int32), Array(13, dtype=int32)) |
++--------+-----------------------+------------------------------------------------------------------------------------+
+Player action: move up
+Game State:
++-----------------+----------------------+----------------------+
+|    Attribute    |        Player        |        Enemy         |
++-----------------+----------------------+----------------------+
+|      Health     |        100.0         |        100.0         |
+|  Action Points  |         5.0          |         5.0          |
+| Movement Points |      3.1715732       |         10.0         |
+|     Location    |       (10, 14)       |       (10, 15)       |
+|     Distance    |         1.0          |                      |
+|       Turn      |          4           |                      |
+|      Steps      |          15          |                      |
+|    Pick Mode    |          No          |                      |
+|  Ability Slot 0 | ID: 1 (CD: 0.0/1.0)  | ID: 2 (CD: 0.0/1.0)  |
+|  Ability Slot 1 | ID: 4 (CD: 0.0/10.0) | ID: 3 (CD: 0.0/10.0) |
++-----------------+----------------------+----------------------+
+Available Actions:
++-----------+-----------------+-----------+
+| Action ID |       Name      | Available |
++-----------+-----------------+-----------+
+|     0     |  move left down |     ✓     |
+|     1     |    move left    |     ✓     |
+|     2     |   move left up  |     ✓     |
+|     3     |    move down    |     ✓     |
+|     4     |     move up     |     ✗     |
+|     5     | move right down |     ✓     |
+|     6     |    move right   |     ✓     |
+|     7     |  move right up  |     ✓     |
+|     8     |   melee attack  |     ✓     |
+|     9     |  ranged attack  |     ✓     |
+|     10    |     end turn    |     ✓     |
+|     11    |    ability_0    |     ✗     |
+|     12    |    ability_1    |     ✗     |
+|     13    |  pick_ability_0 |     ✗     |
+|     14    |  pick_ability_1 |     ✓     |
+|     15    |  pick_ability_2 |     ✓     |
++-----------+-----------------+-----------+
+Actions this turn:
++--------+-----------------------+------------------------------------------------------------------------------------+
+| Player |         Action        |                                       Result                                       |
++--------+-----------------------+------------------------------------------------------------------------------------+
+|   AI   |   end turn (ID: 10)   | HP: 100.0, AP: 5.0, MP: 10.0, Loc: (Array(8, dtype=int32), Array(8, dtype=int32))  |
+| Player | move right up (ID: 7) |  HP: 100.0, AP: 5.0, MP: 8.6, Loc: (Array(9, dtype=int32), Array(9, dtype=int32))  |
+| Player | move right up (ID: 7) | HP: 100.0, AP: 5.0, MP: 7.2, Loc: (Array(10, dtype=int32), Array(10, dtype=int32)) |
+| Player |    move up (ID: 4)    | HP: 100.0, AP: 5.0, MP: 6.2, Loc: (Array(10, dtype=int32), Array(11, dtype=int32)) |
+| Player |    move up (ID: 4)    | HP: 100.0, AP: 5.0, MP: 5.2, Loc: (Array(10, dtype=int32), Array(12, dtype=int32)) |
+| Player |    move up (ID: 4)    | HP: 100.0, AP: 5.0, MP: 4.2, Loc: (Array(10, dtype=int32), Array(13, dtype=int32)) |
+| Player |    move up (ID: 4)    | HP: 100.0, AP: 5.0, MP: 3.2, Loc: (Array(10, dtype=int32), Array(14, dtype=int32)) |
++--------+-----------------------+------------------------------------------------------------------------------------+
+Player action: melee attack
+Game State:
++-----------------+----------------------+----------------------+
+|    Attribute    |        Player        |        Enemy         |
++-----------------+----------------------+----------------------+
+|      Health     |        100.0         |         80.0         |
+|  Action Points  |         4.0          |         5.0          |
+| Movement Points |      3.1715732       |         10.0         |
+|     Location    |       (10, 14)       |       (10, 15)       |
+|     Distance    |         1.0          |                      |
+|       Turn      |          4           |                      |
+|      Steps      |          16          |                      |
+|    Pick Mode    |          No          |                      |
+|  Ability Slot 0 | ID: 1 (CD: 0.0/1.0)  | ID: 2 (CD: 0.0/1.0)  |
+|  Ability Slot 1 | ID: 4 (CD: 0.0/10.0) | ID: 3 (CD: 0.0/10.0) |
++-----------------+----------------------+----------------------+
+Available Actions:
++-----------+-----------------+-----------+
+| Action ID |       Name      | Available |
++-----------+-----------------+-----------+
+|     0     |  move left down |     ✓     |
+|     1     |    move left    |     ✓     |
+|     2     |   move left up  |     ✓     |
+|     3     |    move down    |     ✓     |
+|     4     |     move up     |     ✗     |
+|     5     | move right down |     ✓     |
+|     6     |    move right   |     ✓     |
+|     7     |  move right up  |     ✓     |
+|     8     |   melee attack  |     ✓     |
+|     9     |  ranged attack  |     ✓     |
+|     10    |     end turn    |     ✓     |
+|     11    |    ability_0    |     ✗     |
+|     12    |    ability_1    |     ✗     |
+|     13    |  pick_ability_0 |     ✗     |
+|     14    |  pick_ability_1 |     ✓     |
+|     15    |  pick_ability_2 |     ✓     |
++-----------+-----------------+-----------+
+Actions this turn:
++--------+-----------------------+------------------------------------------------------------------------------------+
+| Player |         Action        |                                       Result                                       |
++--------+-----------------------+------------------------------------------------------------------------------------+
+|   AI   |   end turn (ID: 10)   | HP: 100.0, AP: 5.0, MP: 10.0, Loc: (Array(8, dtype=int32), Array(8, dtype=int32))  |
+| Player | move right up (ID: 7) |  HP: 100.0, AP: 5.0, MP: 8.6, Loc: (Array(9, dtype=int32), Array(9, dtype=int32))  |
+| Player | move right up (ID: 7) | HP: 100.0, AP: 5.0, MP: 7.2, Loc: (Array(10, dtype=int32), Array(10, dtype=int32)) |
+| Player |    move up (ID: 4)    | HP: 100.0, AP: 5.0, MP: 6.2, Loc: (Array(10, dtype=int32), Array(11, dtype=int32)) |
+| Player |    move up (ID: 4)    | HP: 100.0, AP: 5.0, MP: 5.2, Loc: (Array(10, dtype=int32), Array(12, dtype=int32)) |
+| Player |    move up (ID: 4)    | HP: 100.0, AP: 5.0, MP: 4.2, Loc: (Array(10, dtype=int32), Array(13, dtype=int32)) |
+| Player |    move up (ID: 4)    | HP: 100.0, AP: 5.0, MP: 3.2, Loc: (Array(10, dtype=int32), Array(14, dtype=int32)) |
+| Player |  melee attack (ID: 8) | HP: 100.0, AP: 4.0, MP: 3.2, Loc: (Array(10, dtype=int32), Array(14, dtype=int32)) |
++--------+-----------------------+------------------------------------------------------------------------------------+
+Player action: melee attack
+Game State:
++-----------------+----------------------+----------------------+
+|    Attribute    |        Player        |        Enemy         |
++-----------------+----------------------+----------------------+
+|      Health     |        100.0         |         60.0         |
+|  Action Points  |         3.0          |         5.0          |
+| Movement Points |      3.1715732       |         10.0         |
+|     Location    |       (10, 14)       |       (10, 15)       |
+|     Distance    |         1.0          |                      |
+|       Turn      |          4           |                      |
+|      Steps      |          17          |                      |
+|    Pick Mode    |          No          |                      |
+|  Ability Slot 0 | ID: 1 (CD: 0.0/1.0)  | ID: 2 (CD: 0.0/1.0)  |
+|  Ability Slot 1 | ID: 4 (CD: 0.0/10.0) | ID: 3 (CD: 0.0/10.0) |
++-----------------+----------------------+----------------------+
+Available Actions:
++-----------+-----------------+-----------+
+| Action ID |       Name      | Available |
++-----------+-----------------+-----------+
+|     0     |  move left down |     ✓     |
+|     1     |    move left    |     ✓     |
+|     2     |   move left up  |     ✓     |
+|     3     |    move down    |     ✓     |
+|     4     |     move up     |     ✗     |
+|     5     | move right down |     ✓     |
+|     6     |    move right   |     ✓     |
+|     7     |  move right up  |     ✓     |
+|     8     |   melee attack  |     ✓     |
+|     9     |  ranged attack  |     ✓     |
+|     10    |     end turn    |     ✓     |
+|     11    |    ability_0    |     ✗     |
+|     12    |    ability_1    |     ✗     |
+|     13    |  pick_ability_0 |     ✗     |
+|     14    |  pick_ability_1 |     ✓     |
+|     15    |  pick_ability_2 |     ✓     |
++-----------+-----------------+-----------+
+Actions this turn:
++--------+-----------------------+------------------------------------------------------------------------------------+
+| Player |         Action        |                                       Result                                       |
++--------+-----------------------+------------------------------------------------------------------------------------+
+|   AI   |   end turn (ID: 10)   | HP: 100.0, AP: 5.0, MP: 10.0, Loc: (Array(8, dtype=int32), Array(8, dtype=int32))  |
+| Player | move right up (ID: 7) |  HP: 100.0, AP: 5.0, MP: 8.6, Loc: (Array(9, dtype=int32), Array(9, dtype=int32))  |
+| Player | move right up (ID: 7) | HP: 100.0, AP: 5.0, MP: 7.2, Loc: (Array(10, dtype=int32), Array(10, dtype=int32)) |
+| Player |    move up (ID: 4)    | HP: 100.0, AP: 5.0, MP: 6.2, Loc: (Array(10, dtype=int32), Array(11, dtype=int32)) |
+| Player |    move up (ID: 4)    | HP: 100.0, AP: 5.0, MP: 5.2, Loc: (Array(10, dtype=int32), Array(12, dtype=int32)) |
+| Player |    move up (ID: 4)    | HP: 100.0, AP: 5.0, MP: 4.2, Loc: (Array(10, dtype=int32), Array(13, dtype=int32)) |
+| Player |    move up (ID: 4)    | HP: 100.0, AP: 5.0, MP: 3.2, Loc: (Array(10, dtype=int32), Array(14, dtype=int32)) |
+| Player |  melee attack (ID: 8) | HP: 100.0, AP: 4.0, MP: 3.2, Loc: (Array(10, dtype=int32), Array(14, dtype=int32)) |
+| Player |  melee attack (ID: 8) | HP: 100.0, AP: 3.0, MP: 3.2, Loc: (Array(10, dtype=int32), Array(14, dtype=int32)) |
++--------+-----------------------+------------------------------------------------------------------------------------+
+Player action: melee attack
+Game State:
++-----------------+----------------------+----------------------+
+|    Attribute    |        Player        |        Enemy         |
++-----------------+----------------------+----------------------+
+|      Health     |        100.0         |         40.0         |
+|  Action Points  |         2.0          |         5.0          |
+| Movement Points |      3.1715732       |         10.0         |
+|     Location    |       (10, 14)       |       (10, 15)       |
+|     Distance    |         1.0          |                      |
+|       Turn      |          4           |                      |
+|      Steps      |          18          |                      |
+|    Pick Mode    |          No          |                      |
+|  Ability Slot 0 | ID: 1 (CD: 0.0/1.0)  | ID: 2 (CD: 0.0/1.0)  |
+|  Ability Slot 1 | ID: 4 (CD: 0.0/10.0) | ID: 3 (CD: 0.0/10.0) |
++-----------------+----------------------+----------------------+
+Available Actions:
++-----------+-----------------+-----------+
+| Action ID |       Name      | Available |
++-----------+-----------------+-----------+
+|     0     |  move left down |     ✓     |
+|     1     |    move left    |     ✓     |
+|     2     |   move left up  |     ✓     |
+|     3     |    move down    |     ✓     |
+|     4     |     move up     |     ✗     |
+|     5     | move right down |     ✓     |
+|     6     |    move right   |     ✓     |
+|     7     |  move right up  |     ✓     |
+|     8     |   melee attack  |     ✓     |
+|     9     |  ranged attack  |     ✓     |
+|     10    |     end turn    |     ✓     |
+|     11    |    ability_0    |     ✗     |
+|     12    |    ability_1    |     ✗     |
+|     13    |  pick_ability_0 |     ✗     |
+|     14    |  pick_ability_1 |     ✓     |
+|     15    |  pick_ability_2 |     ✓     |
++-----------+-----------------+-----------+
+Actions this turn:
++--------+-----------------------+------------------------------------------------------------------------------------+
+| Player |         Action        |                                       Result                                       |
++--------+-----------------------+------------------------------------------------------------------------------------+
+|   AI   |   end turn (ID: 10)   | HP: 100.0, AP: 5.0, MP: 10.0, Loc: (Array(8, dtype=int32), Array(8, dtype=int32))  |
+| Player | move right up (ID: 7) |  HP: 100.0, AP: 5.0, MP: 8.6, Loc: (Array(9, dtype=int32), Array(9, dtype=int32))  |
+| Player | move right up (ID: 7) | HP: 100.0, AP: 5.0, MP: 7.2, Loc: (Array(10, dtype=int32), Array(10, dtype=int32)) |
+| Player |    move up (ID: 4)    | HP: 100.0, AP: 5.0, MP: 6.2, Loc: (Array(10, dtype=int32), Array(11, dtype=int32)) |
+| Player |    move up (ID: 4)    | HP: 100.0, AP: 5.0, MP: 5.2, Loc: (Array(10, dtype=int32), Array(12, dtype=int32)) |
+| Player |    move up (ID: 4)    | HP: 100.0, AP: 5.0, MP: 4.2, Loc: (Array(10, dtype=int32), Array(13, dtype=int32)) |
+| Player |    move up (ID: 4)    | HP: 100.0, AP: 5.0, MP: 3.2, Loc: (Array(10, dtype=int32), Array(14, dtype=int32)) |
+| Player |  melee attack (ID: 8) | HP: 100.0, AP: 4.0, MP: 3.2, Loc: (Array(10, dtype=int32), Array(14, dtype=int32)) |
+| Player |  melee attack (ID: 8) | HP: 100.0, AP: 3.0, MP: 3.2, Loc: (Array(10, dtype=int32), Array(14, dtype=int32)) |
+| Player |  melee attack (ID: 8) | HP: 100.0, AP: 2.0, MP: 3.2, Loc: (Array(10, dtype=int32), Array(14, dtype=int32)) |
++--------+-----------------------+------------------------------------------------------------------------------------+
+Player action: melee attack
+Game State:
++-----------------+----------------------+----------------------+
+|    Attribute    |        Player        |        Enemy         |
++-----------------+----------------------+----------------------+
+|      Health     |        100.0         |         20.0         |
+|  Action Points  |         1.0          |         5.0          |
+| Movement Points |      3.1715732       |         10.0         |
+|     Location    |       (10, 14)       |       (10, 15)       |
+|     Distance    |         1.0          |                      |
+|       Turn      |          4           |                      |
+|      Steps      |          19          |                      |
+|    Pick Mode    |          No          |                      |
+|  Ability Slot 0 | ID: 1 (CD: 0.0/1.0)  | ID: 2 (CD: 0.0/1.0)  |
+|  Ability Slot 1 | ID: 4 (CD: 0.0/10.0) | ID: 3 (CD: 0.0/10.0) |
++-----------------+----------------------+----------------------+
+Available Actions:
++-----------+-----------------+-----------+
+| Action ID |       Name      | Available |
++-----------+-----------------+-----------+
+|     0     |  move left down |     ✓     |
+|     1     |    move left    |     ✓     |
+|     2     |   move left up  |     ✓     |
+|     3     |    move down    |     ✓     |
+|     4     |     move up     |     ✗     |
+|     5     | move right down |     ✓     |
+|     6     |    move right   |     ✓     |
+|     7     |  move right up  |     ✓     |
+|     8     |   melee attack  |     ✓     |
+|     9     |  ranged attack  |     ✓     |
+|     10    |     end turn    |     ✓     |
+|     11    |    ability_0    |     ✗     |
+|     12    |    ability_1    |     ✗     |
+|     13    |  pick_ability_0 |     ✗     |
+|     14    |  pick_ability_1 |     ✓     |
+|     15    |  pick_ability_2 |     ✓     |
++-----------+-----------------+-----------+
+Actions this turn:
++--------+-----------------------+------------------------------------------------------------------------------------+
+| Player |         Action        |                                       Result                                       |
++--------+-----------------------+------------------------------------------------------------------------------------+
+|   AI   |   end turn (ID: 10)   | HP: 100.0, AP: 5.0, MP: 10.0, Loc: (Array(8, dtype=int32), Array(8, dtype=int32))  |
+| Player | move right up (ID: 7) |  HP: 100.0, AP: 5.0, MP: 8.6, Loc: (Array(9, dtype=int32), Array(9, dtype=int32))  |
+| Player | move right up (ID: 7) | HP: 100.0, AP: 5.0, MP: 7.2, Loc: (Array(10, dtype=int32), Array(10, dtype=int32)) |
+| Player |    move up (ID: 4)    | HP: 100.0, AP: 5.0, MP: 6.2, Loc: (Array(10, dtype=int32), Array(11, dtype=int32)) |
+| Player |    move up (ID: 4)    | HP: 100.0, AP: 5.0, MP: 5.2, Loc: (Array(10, dtype=int32), Array(12, dtype=int32)) |
+| Player |    move up (ID: 4)    | HP: 100.0, AP: 5.0, MP: 4.2, Loc: (Array(10, dtype=int32), Array(13, dtype=int32)) |
+| Player |    move up (ID: 4)    | HP: 100.0, AP: 5.0, MP: 3.2, Loc: (Array(10, dtype=int32), Array(14, dtype=int32)) |
+| Player |  melee attack (ID: 8) | HP: 100.0, AP: 4.0, MP: 3.2, Loc: (Array(10, dtype=int32), Array(14, dtype=int32)) |
+| Player |  melee attack (ID: 8) | HP: 100.0, AP: 3.0, MP: 3.2, Loc: (Array(10, dtype=int32), Array(14, dtype=int32)) |
+| Player |  melee attack (ID: 8) | HP: 100.0, AP: 2.0, MP: 3.2, Loc: (Array(10, dtype=int32), Array(14, dtype=int32)) |
+| Player |  melee attack (ID: 8) | HP: 100.0, AP: 1.0, MP: 3.2, Loc: (Array(10, dtype=int32), Array(14, dtype=int32)) |
++--------+-----------------------+------------------------------------------------------------------------------------+
+Player action: pick_ability_2
+Game State:
++-----------------+-----------------------+----------------------+
+|    Attribute    |         Player        |        Enemy         |
++-----------------+-----------------------+----------------------+
+|      Health     |         100.0         |         20.0         |
+|  Action Points  |          0.0          |         5.0          |
+| Movement Points |       3.1715732       |         10.0         |
+|     Location    |        (10, 14)       |       (10, 15)       |
+|     Distance    |          1.0          |                      |
+|       Turn      |           4           |                      |
+|      Steps      |           20          |                      |
+|    Pick Mode    |           No          |                      |
+|  Ability Slot 0 |  ID: 1 (CD: 0.0/1.0)  | ID: 2 (CD: 0.0/1.0)  |
+|  Ability Slot 1 | ID: 4 (CD: 10.0/10.0) | ID: 3 (CD: 0.0/10.0) |
++-----------------+-----------------------+----------------------+
+Available Actions:
++-----------+-----------------+-----------+
+| Action ID |       Name      | Available |
++-----------+-----------------+-----------+
+|     0     |  move left down |     ✓     |
+|     1     |    move left    |     ✓     |
+|     2     |   move left up  |     ✓     |
+|     3     |    move down    |     ✓     |
+|     4     |     move up     |     ✗     |
+|     5     | move right down |     ✓     |
+|     6     |    move right   |     ✓     |
+|     7     |  move right up  |     ✓     |
+|     8     |   melee attack  |     ✗     |
+|     9     |  ranged attack  |     ✗     |
+|     10    |     end turn    |     ✓     |
+|     11    |    ability_0    |     ✗     |
+|     12    |    ability_1    |     ✗     |
+|     13    |  pick_ability_0 |     ✗     |
+|     14    |  pick_ability_1 |     ✗     |
+|     15    |  pick_ability_2 |     ✗     |
++-----------+-----------------+-----------+
+Actions this turn:
++--------+-------------------------+------------------------------------------------------------------------------------+
+| Player |          Action         |                                       Result                                       |
++--------+-------------------------+------------------------------------------------------------------------------------+
+|   AI   |    end turn (ID: 10)    | HP: 100.0, AP: 5.0, MP: 10.0, Loc: (Array(8, dtype=int32), Array(8, dtype=int32))  |
+| Player |  move right up (ID: 7)  |  HP: 100.0, AP: 5.0, MP: 8.6, Loc: (Array(9, dtype=int32), Array(9, dtype=int32))  |
+| Player |  move right up (ID: 7)  | HP: 100.0, AP: 5.0, MP: 7.2, Loc: (Array(10, dtype=int32), Array(10, dtype=int32)) |
+| Player |     move up (ID: 4)     | HP: 100.0, AP: 5.0, MP: 6.2, Loc: (Array(10, dtype=int32), Array(11, dtype=int32)) |
+| Player |     move up (ID: 4)     | HP: 100.0, AP: 5.0, MP: 5.2, Loc: (Array(10, dtype=int32), Array(12, dtype=int32)) |
+| Player |     move up (ID: 4)     | HP: 100.0, AP: 5.0, MP: 4.2, Loc: (Array(10, dtype=int32), Array(13, dtype=int32)) |
+| Player |     move up (ID: 4)     | HP: 100.0, AP: 5.0, MP: 3.2, Loc: (Array(10, dtype=int32), Array(14, dtype=int32)) |
+| Player |   melee attack (ID: 8)  | HP: 100.0, AP: 4.0, MP: 3.2, Loc: (Array(10, dtype=int32), Array(14, dtype=int32)) |
+| Player |   melee attack (ID: 8)  | HP: 100.0, AP: 3.0, MP: 3.2, Loc: (Array(10, dtype=int32), Array(14, dtype=int32)) |
+| Player |   melee attack (ID: 8)  | HP: 100.0, AP: 2.0, MP: 3.2, Loc: (Array(10, dtype=int32), Array(14, dtype=int32)) |
+| Player |   melee attack (ID: 8)  | HP: 100.0, AP: 1.0, MP: 3.2, Loc: (Array(10, dtype=int32), Array(14, dtype=int32)) |
+| Player | pick_ability_2 (ID: 15) | HP: 100.0, AP: 0.0, MP: 3.2, Loc: (Array(10, dtype=int32), Array(14, dtype=int32)) |
++--------+-------------------------+------------------------------------------------------------------------------------+
+Player action: end turn
+Game State:
++-----------------+----------------------+----------------------+
+|    Attribute    |        Player        |        Enemy         |
++-----------------+----------------------+----------------------+
+|      Health     |        100.0         |         20.0         |
+|  Action Points  |         5.0          |         5.0          |
+| Movement Points |         10.0         |         10.0         |
+|     Location    |       (10, 14)       |       (10, 15)       |
+|     Distance    |         1.0          |                      |
+|       Turn      |          5           |                      |
+|      Steps      |          21          |                      |
+|    Pick Mode    |          No          |                      |
+|  Ability Slot 0 | ID: 1 (CD: 0.0/1.0)  | ID: 2 (CD: 0.0/1.0)  |
+|  Ability Slot 1 | ID: 4 (CD: 9.0/10.0) | ID: 3 (CD: 0.0/10.0) |
++-----------------+----------------------+----------------------+
+Available Actions:
++-----------+-----------------+-----------+
+| Action ID |       Name      | Available |
++-----------+-----------------+-----------+
+|     0     |  move left down |     ✓     |
+|     1     |    move left    |     ✓     |
+|     2     |   move left up  |     ✓     |
+|     3     |    move down    |     ✓     |
+|     4     |     move up     |     ✗     |
+|     5     | move right down |     ✓     |
+|     6     |    move right   |     ✓     |
+|     7     |  move right up  |     ✓     |
+|     8     |   melee attack  |     ✓     |
+|     9     |  ranged attack  |     ✓     |
+|     10    |     end turn    |     ✓     |
+|     11    |    ability_0    |     ✗     |
+|     12    |    ability_1    |     ✗     |
+|     13    |  pick_ability_0 |     ✗     |
+|     14    |  pick_ability_1 |     ✓     |
+|     15    |  pick_ability_2 |     ✗     |
++-----------+-----------------+-----------+
+Actions this turn:
++--------+-------------------+-------------------------------------------------------------------------------------+
+| Player |       Action      |                                        Result                                       |
++--------+-------------------+-------------------------------------------------------------------------------------+
+| Player | end turn (ID: 10) | HP: 100.0, AP: 5.0, MP: 10.0, Loc: (Array(10, dtype=int32), Array(14, dtype=int32)) |
++--------+-------------------+-------------------------------------------------------------------------------------+
+AI turn:
+- melee attack
+- melee attack
+- melee attack
+- melee attack
+- melee attack
+- pick_ability_0
+Game State:
++-----------------+----------------------+---------------------+
+|    Attribute    |        Player        |        Enemy        |
++-----------------+----------------------+---------------------+
+|      Health     |        100.0         |        100.0        |
+|  Action Points  |         3.0          |         3.0         |
+| Movement Points |         10.0         |         10.0        |
+|     Location    |        (4, 9)        |       (15, 12)      |
+|     Distance    |      11.401754       |                     |
+|       Turn      |          0           |                     |
+|      Steps      |          1           |                     |
+|    Pick Mode    |         Yes          |                     |
+|  Ability Slot 0 | ID: 4 (CD: 0.0/10.0) | ID: 1 (CD: 0.0/1.0) |
+|  Ability Slot 1 |        Empty         |        Empty        |
++-----------------+----------------------+---------------------+
+Available Actions:
++-----------+----------------------------+-----------+
+| Action ID |            Name            | Available |
++-----------+----------------------------+-----------+
+|     11    | Pick Ability ID: 0 - CD:3  |     ✓     |
+|     12    | Pick Ability ID: 3 - CD:10 |     ✓     |
+|     13    | Pick Ability ID: 2 - CD:1  |     ✓     |
++-----------+----------------------------+-----------+
+Ability Pool:
++-------+------------+----------+-------------+-------------+-------------+-----------+
+| Index | Ability ID | Cooldown | Parameter 1 | Parameter 2 | Parameter 3 |   Status  |
++-------+------------+----------+-------------+-------------+-------------+-----------+
+|   0   |     0      |    3     |     8.0     |     0.0     |     3.0     | Available |
+|   1   |     3      |    10    |     0.0     |     0.0     |     0.0     | Available |
+|   2   |     2      |    1     |     8.0     |     0.0     |     0.0     | Available |
++-------+------------+----------+-------------+-------------+-------------+-----------+
+Actions last turn:
++--------+-------------------------+-----------------------------------------------------------------------------------+
+| Player |          Action         |                                       Result                                      |
++--------+-------------------------+-----------------------------------------------------------------------------------+
+|   AI   |   melee attack (ID: 8)  | HP: 100.0, AP: 3.0, MP: 10.0, Loc: (Array(4, dtype=int32), Array(9, dtype=int32)) |
+|   AI   | pick_ability_0 (ID: 13) | HP: 100.0, AP: 3.0, MP: 10.0, Loc: (Array(4, dtype=int32), Array(9, dtype=int32)) |

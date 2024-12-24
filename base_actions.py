@@ -107,7 +107,7 @@ class PickPoolAbility(Action):
         )
 
         # Set action points to 0 to end turn
-        new_action_points = state.units.action_points.at[source_id, 1].set(0)
+        # new_action_points = state.units.action_points.at[source_id, 1].set(0)
 
         # Calculate new pick state
         new_pick_count = state.pick_count + 1
@@ -121,7 +121,7 @@ class PickPoolAbility(Action):
         # Create updated units state
         new_units = state.units.replace(
             abilities=new_abilities,
-            action_points=new_action_points
+            # action_points=new_action_points
         )
 
         # Mark ability as picked in pool
@@ -439,11 +439,11 @@ class EndTurnAction(Action):
         """
         # Existing end turn logic...
         new_action_points = state.units.action_points.at[source_id, 1].set(
-            state.units.action_points[source_id, 2]  # Set current to max
+            state.units.action_points[source_id, 0]  # Set current to base
         )
         
         new_movement_points = state.units.movement_points.at[source_id, 1].set(
-            state.units.movement_points[source_id, 2]  # Set current to max
+            state.units.movement_points[source_id, 0]  # Set current to base
         )
 
         # Reduce cooldowns for all abilities by 1 (not below 0)
